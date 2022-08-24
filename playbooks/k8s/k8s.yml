@@ -1,0 +1,316 @@
+##
+##   Copyright (c) 2020-2022 Intel Corporation.
+##
+##   Licensed under the Apache License, Version 2.0 (the "License");
+##   you may not use this file except in compliance with the License.
+##   You may obtain a copy of the License at
+##
+##       http://www.apache.org/licenses/LICENSE-2.0
+##
+##   Unless required by applicable law or agreed to in writing, software
+##   distributed under the License is distributed on an "AS IS" BASIS,
+##   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+##   See the License for the specific language governing permissions and
+##   limitations under the License.
+##
+---
+- hosts: k8s_cluster
+  tasks:
+    - name: regather selinux facts
+      setup:
+        gather_subset: 'selinux'
+      when: ansible_os_family == "RedHat"
+  roles:
+    - role: cluster_defaults
+    - role: kubespray_target_setup
+  environment: "{{ proxy_env | d({}) }}"
+  any_errors_fatal: true
+
+- hosts: k8s_cluster
+  gather_facts: false
+  tasks:
+    - name: prepare additional kubespray facts
+      set_fact:
+        kubelet_node_custom_flags_prepare: >-
+          {%- if native_cpu_manager_enabled | default(true) and native_cpu_manager_reserved_cpus is defined -%}
+            reservedSystemCPUs: "{{ native_cpu_manager_reserved_cpus }}"
+          {%- endif -%}
+        enable_admission_plugins_prepare: >-
+          [EventRateLimit,
+          DefaultStorageClass,
+          {% if always_pull_enabled %}AlwaysPullImages,{% endif %}
+          NodeRestriction{% if psp_enabled %}, PodSecurityPolicy{% endif %}]
+        cek_docker_version: >-
+          {% if ansible_distribution_version >= '21.04' %}latest{% else %}19.03{%endif %}
+        kube_config_dir: /etc/kubernetes
+    - name: prepare facts for Ubuntu >= 21.10
+      set_fact:
+        docker_containerd_version: latest
+      when:
+        - ansible_distribution == "Ubuntu" and ansible_distribution_version >= "21.10"
+        - container_runtime == "docker"
+    - name: set kube_cert_dir
+      set_fact:
+        kube_cert_dir: "{{ kube_config_dir }}/ssl"
+        kube_csr_dir: "{{ kube_config_dir }}/csr"
+    - name: prepare flannel CNI facts
+      set_fact:
+        flannel_backend_type: >-
+          {% if ansible_distribution_version >= '21.04' %}host-gw{% else %}vxlan{%endif %}
+      when: kube_network_plugin == "flannel"
+    - name: prepare calico CNI facts for vxlan backend
+      set_fact:
+        calico_vxlan_mode: 'CrossSubnet'
+        calico_ipip_mode: 'Never'
+      when:
+        - kube_network_plugin == "calico"
+        - calico_network_backend == "vxlan"
+        - not calico_advanced_options
+    - name: prepare calico CNI facts for bird backend
+      set_fact:
+        calico_ipip_mode: 'Always'
+        calico_endpoint_to_host_action: "ACCEPT"
+        calico_wireguard_enabled: "{{ wireguard_enabled | default(true) | bool }}"
+        epel_enabled: >-
+          {% if ansible_distribution == 'Rocky' %}true{% else %}false{% endif %}
+      when:
+        - kube_network_plugin == "calico"
+        - calico_network_backend == "bird"
+        - not calico_advanced_options
+  environment: "{{ proxy_env | d({}) }}"
+  any_errors_fatal: true
+
+- hosts: k8s_cluster
+  tasks:
+    - name: add docker runtime vars
+      set_fact:
+        container_manager: docker
+        docker_iptables_enabled: true
+        docker_dns_servers_strict: false
+        docker_version: "{{ cek_docker_version }}"
+      when: container_runtime == "docker"
+    - name: add containerd runtime vars
+      set_fact:
+        container_manager: containerd
+        etcd_deployment_type: host
+        image_command_tool: crictl
+        containerd_extra_args: |2
+                  [plugins."io.containerd.grpc.v1.cri".registry.mirrors."{{ registry_local_address }}"]
+                    endpoint = ["https://{{ registry_local_address }}"]
+                  [plugins."io.containerd.grpc.v1.cri".registry.configs."{{ registry_local_address }}".tls]
+                    ca_file   = "/etc/containers/certs.d/{{ registry_local_address }}/ca.crt"
+      when: container_runtime == "containerd"
+    - name: add crio runtime vars
+      set_fact:
+        container_manager: crio
+        download_container: false
+        skip_downloads: false
+        etcd_deployment_type: host
+      when: container_runtime == "crio"
+- name: run kubespray
+  import_playbook: kubespray/cluster.yml
+  vars:
+    kubeadm_enabled: true
+    helm_enabled: true
+    multus_conf_file: /host/etc/cni/net.d/templates/00-multus.conf
+    nginx_image_tag: 1.21.3
+    calico_node_livenessprobe_timeout: 15
+    calico_node_readinessprobe_timeout: 15
+    override_system_hostname: false
+    kube_proxy_mode: iptables
+    enable_nodelocaldns: false
+    system_reserved: true
+    dashboard_enabled: "{{ kube_dashboard_enabled | default(true) }}"
+    system_cpu_reserved: "{{ native_cpu_manager_system_reserved_cpus | default('1000m') }}"
+    kube_cpu_reserved: "{{ native_cpu_manager_kube_reserved_cpus | default('1000m') }}"
+    kubelet_custom_flags: "--cpu-cfs-quota=false"
+    kubelet_node_config_extra_args: "{{ kubelet_node_custom_flags_prepare | from_yaml }}"
+    kube_api_anonymous_auth: true
+    kube_feature_gates:
+      - CPUManager=true # feature gate can be enabled by default, default policy is none in Kubernetes
+      - TopologyManager={{ topology_manager_enabled | default(true) }}
+      - RotateKubeletServerCertificate=true
+    # Kubernetes cluster hardening
+    kubernetes_audit: true
+    audit_log_maxbackups: 10
+    kube_scheduler_bind_address: 127.0.0.1
+    kube_proxy_healthz_bind_address: 127.0.0.1
+    kube_read_only_port: 0
+    kube_override_hostname: ""
+    kube_kubeadm_apiserver_extra_args:
+      service-account-lookup: true
+      service-account-key-file: "{{ kube_cert_dir }}/sa.key"
+      admission-control-config-file: "{{ kube_config_dir }}/admission-control/config.yaml"
+    kube_kubeadm_scheduler_extra_args:
+      address: 127.0.0.1
+      profiling: false
+    kube_kubeadm_controller_extra_args:
+      address: 127.0.0.1
+      service-account-private-key-file: "{{ kube_cert_dir }}/sa.key"
+    kubelet_config_extra_args:
+      protectKernelDefaults: true
+      cpuManagerPolicy: "{% if native_cpu_manager_enabled | default(true) %}static{% else %}none{% endif %}"
+      topologyManagerPolicy: "{% if topology_manager_enabled | default(true) %}{{ topology_manager_policy | default('none') }}{% else %}none{% endif %}"
+      eventRecordQPS: 0
+    kube_apiserver_request_timeout: 60s
+    kube_apiserver_enable_admission_plugins: "{{ enable_admission_plugins_prepare | from_yaml }}"
+    podsecuritypolicy_enabled: "{{ psp_enabled }}"
+    kube_encrypt_secret_data: true
+    apiserver_extra_volumes:
+      - name: admission-control-config
+        hostPath: /etc/kubernetes/admission-control/
+        mountPath: /etc/kubernetes/admission-control/
+        readOnly: true
+    preinstall_selinux_state: "{{ ansible_selinux.mode | default('disabled') }}"
+    tls_cipher_suites:
+      - TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256
+      - TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256
+      - TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384
+    etcd_extra_vars:
+      ETCD_CIPHER_SUITES: "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384"
+  any_errors_fatal: true
+
+- hosts: k8s_cluster
+  tasks:
+    - name: restart docker daemon to recreate iptables rules
+      systemd: name=docker state=restarted
+      become: yes
+      when: container_runtime == "docker"
+    - name: restart kubelet to trigger static pods recreation
+      systemd: name=kubelet state=restarted
+      become: yes
+    # note: fix for the issue mentioned here:
+    # https://github.com/kubernetes-sigs/kubespray/blob/58f48500b1adac3f18466fa1c5cf8aa9d9838150/docs/flannel.md#flannel
+    - name: check if flannel.1 interface exists
+      stat:
+        path: /sys/class/net/flannel.1
+      when: kube_network_plugin == "flannel"
+      register: flannel_endpoint
+    - name: disable offloading features on flannel.1
+      command: ethtool --offload flannel.1 rx off tx off
+      become: yes
+      when:
+        - kube_network_plugin == "flannel"
+        - flannel_endpoint.stat.exists
+
+    # environment was added here to disable proxy for this health check
+    # standard no_proxy was not evaluated properly here
+    - name: wait for kube-apiserver to be up
+      uri:
+        url: "https://127.0.0.1:6443/healthz"
+        validate_certs: no
+      environment:
+        http_proxy: ''
+        https_proxy: ''
+        HTTP_PROXY: ''
+        HTTPS_PROXY: ''
+      register: results
+      until: results.status == 200
+      retries: 30
+      delay: 5
+    - name: allow traffic on wireguard interface
+      block:
+        - name: allow traffic on wireguard interface on Ubuntu
+          ufw:
+            rule: allow
+            interface: wireguard.cali
+            direction: in
+            state: reloaded
+          when: ansible_os_family == "Debian"
+
+        - name: allow traffic on wireguard interface on RHEL/CentOS
+          firewalld:
+            zone: trusted
+            interface: wireguard.cali
+            permanent: yes
+            state: enabled
+          when: ansible_os_family == "RedHat"
+      when:
+        - wireguard_enabled | default(true) | bool
+        - kube_network_plugin == "calico" and calico_network_backend == "bird"
+        - firewall_enabled | default(false) | bool
+
+    - name: patch default calico controller configuration to not expose metrics port
+      command: "/usr/local/bin/calicoctl patch kubeControllersConfiguration default --patch='{ \"spec\": { \"prometheusMetricsPort\": 0 }}'"
+      when:
+        - ansible_hostname == groups['kube_control_plane'][0]
+        - kube_network_plugin == "calico"
+        - not calico_metrics_enabled
+      changed_when: true
+
+    - name: fix podman dependencies
+      apt:
+        name:
+          - golang-github-containers-common
+          - golang-github-containers-image
+        dpkg_options: 'force-overwrite'
+      when:
+        - '"crio" in container_runtime'
+        - ansible_distribution == "Ubuntu" and ansible_distribution_version == "22.04"
+
+    - name: install podman package
+      package:
+        name: podman
+        state: present
+      register: podman_package
+      retries: 10
+      until: podman_package is success
+      when: '"docker" not in container_runtime'
+
+    - name: registries.conf configuration on containerd
+      block:
+        - name: check if registries.conf exists
+          stat:
+            path: /etc/containers/registries.conf
+          register: registries_conf
+
+        - name: add "unqualified-search-registries" to registries.conf
+          lineinfile:
+            path: /etc/containers/registries.conf
+            regexp: '^#unqualified-search-registries'
+            line: unqualified-search-registries = ["docker.io"]
+          when: registries_conf.stat.exists
+      when: container_runtime == "containerd"
+
+  any_errors_fatal: true
+
+- hosts: etcd
+  tasks:
+    - name: change /var/lib/etcd owner
+      file:
+        path: "{{ etcd_data_dir | default('/var/lib/etcd') }}"
+        owner: etcd
+        group: etcd
+        recurse: true
+        state: directory
+        mode: 0700
+    - name: change /var/lib/etcd permissions
+      file:
+        path: "{{ etcd_data_dir | default('/var/lib/etcd') }}"
+        owner: etcd
+        group: etcd
+        mode: '0700'
+        state: directory
+  any_errors_fatal: true
+
+- hosts: k8s_cluster
+  roles:
+    - role: cluster_defaults
+      tags: defaults
+      when:
+        - cert_manager_enable | default(false) or
+          registry_enable | default(false)
+    - role: cert_manager_install
+      tags: cert-manager
+      when:
+        - cert_manager_enable | default(false)
+    - role: container_registry
+      tags: registry
+      when:
+        - registry_enable | default(false)
+  environment: "{{ proxy_env | d({}) }}"
+  any_errors_fatal: true
+
+- name: run certificate generation for mTLS in kubelet
+  import_playbook: kubelet-certificates.yml
+  when: kubernetes | default(true)

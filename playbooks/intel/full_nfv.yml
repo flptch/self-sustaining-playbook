@@ -1,0 +1,151 @@
+---
+- hosts: k8s_cluster
+  tasks: []
+  roles:
+    - role: cluster_defaults
+      tags: defaults
+    - role: remove_kubespray_host_dns_settings
+      tags: remove-kubespray-host-dns-settings
+      when:
+        - remove_kubespray_host_dns_settings | default(false) | bool
+    - role: nfd_install
+      tags: nfd
+      when: nfd_enabled | default(true) | bool
+    - role: operator_framework
+      tags: operator-framework
+      when:
+        - intel_ethernet_operator_enabled | default(false) | bool or
+          intel_sriov_fec_operator_enabled | default(false) | bool
+    - role: intel_ethernet_operator
+      tags: intel-ethernet-operator
+      when:
+        - intel_ethernet_operator_enabled | default(false) | bool
+    - role: sriov_dp_install
+      tags: sriov-net-dp
+      when:
+        - sriov_net_dp_enabled | default(false) | bool
+        - not sriov_network_operator_enabled | default(true) | bool
+    - role: sriov_network_operator_install
+      tags: sriov-network-operator
+      when:
+        - sriov_network_operator_enabled | default(true) | bool
+        - not sriov_net_dp_enabled | default(false) | bool
+        - not sriov_cni_enabled | default(false) | bool
+    - role: intel_dp_operator
+      tags: dp-operator
+      when: sgx_dp_enabled | default(false) or
+            gpu_dp_enabled | default(false) or
+            qat_dp_enabled | default(false)
+    - role: sgx_dp_install
+      tags: sgx-dp
+      when:
+        - sgx_dp_enabled | default(false)
+        - ansible_os_family == "Debian" or (ansible_os_family == "RedHat" and ansible_distribution_version >= '8.3')
+    - role: kmra_install
+      tags: kmra
+      when:
+        - kmra.pccs.enabled | default(false) | bool or
+          kmra.apphsm.enabled  | default(false) | bool or
+          kmra.ctk_loadkey_demo.enabled  | default(false) | bool
+        - (ansible_distribution == "Ubuntu" and ansible_distribution_version >= '20.04')
+          or (ansible_os_family == "RedHat" and ansible_distribution_version >= '8.3')
+    - role: tcs_install
+      tags: tcs
+      when:
+        - tcs.enabled | default(false) | bool
+    - role: tca_install
+      tags: tca
+      when:
+        - tca.enabled | default(false) | bool
+    - role: intel_power_manager
+      tags: power-manager
+      when: intel_power_manager is defined and intel_power_manager.enabled | default(false) | bool
+    - role: qat_dp_install
+      tags: qat-dp
+      when: qat_dp_enabled | default(false) | bool
+    - role: openssl_engine_install
+      tags: openssl-engine
+      when: openssl_engine_enabled | default(false) | bool
+    - role: gpu_dp_install
+      tags: gpu-dp
+      when: gpu_dp_enabled | default(false) | bool
+    - role: platform_aware_scheduling_install
+      tags: platform-aware-scheduling
+      when: tas_enabled | default(true) | bool or gas_enabled | default(true) | bool
+    - role: kube_prometheus
+      when:
+        - prometheus_operator | default(false) | bool
+    - role: collectd_install
+      tags: monitoring
+      when:
+        - collectd_enabled | default(false) | bool
+        - not (telegraf_enabled | default(true) | bool)
+      vars:
+        collectd_profile: full_nfv
+    - role: telegraf_install
+      when:
+        - telegraf_enabled | default(true) | bool
+        - not (collectd_enabled | default(false) | bool)
+      tags: monitoring
+      vars:
+        telegraf_profile: full_nfv
+    - role: intel_sriov_fec_operator
+      tags: intel-sriov-fec-operator
+      when:
+        - intel_sriov_fec_operator_enabled | default(false) | bool
+    - role: intel_flexran
+      tags: intel-flexran
+      when:
+        - intel_flexran_enabled | default(false) | bool
+    - role: service_mesh_install
+      tags: service-mesh
+      when:
+        - service_mesh.enabled | default(true) | bool
+    - role: cndp_install
+      tags: cndp
+      when:
+        - cndp_enabled | default(false) | bool
+        - (ansible_distribution == "Ubuntu" and ansible_distribution_version >= "20.04") or
+          (ansible_os_family == "RedHat" and ansible_distribution_version >= "8.5")
+    - role: cndp_dp_install
+      tags: cndp-dp
+      when:
+        - cndp_dp_enabled | default(false) | bool
+        - (ansible_distribution == "Ubuntu" and ansible_distribution_version >= "20.04") or
+          (ansible_os_family == "RedHat" and ansible_distribution_version >= "8.5")
+
+    - role: minio_install
+      tags: minio
+      when:
+        - minio_enabled | default(false) | bool
+  environment:
+    - "{{ proxy_env | d({}) }}"
+    - REGISTRY_AUTH_FILE: "{{ registry_containerd }}"
+  any_errors_fatal: true
+
+- hosts: kube_node
+  tasks: []
+  roles:
+    - role: cluster_defaults
+      tags: defaults
+    - role: sriov_cni_install
+      when:
+        - sriov_cni_enabled | default(false) | bool
+        - not sriov_network_operator_enabled | default(true) | bool
+      tags: sriov-cni
+    - role: bond_cni_install
+      when: bond_cni_enabled | default(true) | bool
+      tags: bond-cni
+    - role: userspace_cni_install
+      tags: userspace-cni
+      when: userspace_cni_enabled | default(true) | bool
+  environment: "{{ proxy_env | d({}) }}"
+  any_errors_fatal: true
+
+- hosts: kube_control_plane
+  tasks: []
+  roles:
+    - role: net_attach_defs_create
+      tags: net-attach-defs
+  environment: "{{ proxy_env | d({}) }}"
+  any_errors_fatal: true

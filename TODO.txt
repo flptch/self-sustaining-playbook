@@ -1,0 +1,13 @@
+vytvorit tridy - playbook, header, hosts, tasks, pre_tasks, handlers, roles
+u kazdyho tasku, pre_tasku a handleru udrzovat pouze jmeno a bool hodnotu zda zpusobuje reboot?
+potreba establishnout ktery playbooky kontrolovat
+	uzivatel si v tom projektu zvoli urcitej profil a podle nej se vygenerujou playbooky do urcitejch mist
+	a ty je potreba zkontrolovat 
+	hlavni playbook kterej spousti ti ostatni je ve slozce playbooks
+zpracovat YAML format pomoci nejake python knihovny (rychlejsi/jednodussi nez for cykly)
+zacit hledat rebooty:
+	u kazdeho reboota potreba overit zda rebootne control node
+	notify v role task, kterej notifyne handler definovanej main playbooku
+	notify v role task, kterej notifyne handler definovanej v roli
+	...
+	...

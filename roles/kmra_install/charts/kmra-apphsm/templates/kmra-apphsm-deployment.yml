@@ -1,0 +1,101 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ .Release.Name }}
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Release.Name }}
+    spec:
+      hostNetwork: true
+      serviceAccountName: {{ .Release.Name }}
+      initContainers:
+      - name: init-tmpfs
+        image: "{{ .Values.apphsm.init.image.repo }}/{{ .Values.apphsm.init.image.name }}:{{ .Values.apphsm.init.image.tag }}"
+        command: ['sh', '-c', "rm -rf /var/lib/softhsm/tokens/*"]
+      containers:
+      - name: {{ .Release.Name }}
+        image: "{{ .Values.apphsm.main.image.repo }}/{{ .Values.apphsm.main.image.name }}:{{ .Values.apphsm.main.image.tag }}"
+        imagePullPolicy: {{ .Values.apphsm.main.image.pullPolicy }}
+        command:
+          - /workspace/apphsm_commands.sh
+        envFrom:
+        - configMapRef:
+            name: {{ .Release.Name }}-env
+        volumeMounts:
+        - name: mtls
+          mountPath: /opt/intel/ca
+          readOnly: true
+        - name: sgx-qcnl-conf
+          mountPath: /etc/sgx_default_qcnl.conf
+          subPath: sgx_default_qcnl.conf
+          readOnly: true
+        - name: tmpfs
+          mountPath: /tmp
+          subPath: tmp
+        - name: tmpfs
+          mountPath: /var/lib/softhsm/tokens
+          subPath: tokens
+        - name: appshm-conf
+          mountPath: /opt/intel/apphsm/apphsm.conf
+          subPath: apphsm.conf
+          readOnly: true
+        - name: appshm-cmd
+          mountPath: /workspace/apphsm_commands.sh
+          subPath: apphsm_commands.sh
+          readOnly: true
+        resources:
+          limits:
+            cpu: 500m
+            memory: 500Mi
+          requests:
+            cpu: 200m
+            memory: 200Mi
+        securityContext:
+          runAsUser: 65333
+          readOnlyRootFilesystem: true
+      affinity:
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 1
+              preference:
+                matchExpressions:
+                - key: app
+                  operator: In
+                  values:
+                  - kmra
+      volumes:
+      - name: mtls
+        secret:
+          secretName: {{ .Release.Name }}-tls
+          items:
+          - key: tls.key
+            path: apphsm.key
+          - key: tls.cert
+            path: apphsm.crt
+          - key: ca.cert
+            path: ca.crt
+      - name: sgx-qcnl-conf
+        configMap:
+          name: {{ .Release.Name }}-qcnl-conf
+      - name: appshm-conf
+        configMap:
+          name: {{ .Release.Name }}-config
+      - name: appshm-cmd
+        configMap:
+          name: {{ .Release.Name }}-entrypoint
+          defaultMode: 0777
+      - name: tmpfs
+        emptyDir:
+          medium: Memory
+          sizeLimit: 64Mi

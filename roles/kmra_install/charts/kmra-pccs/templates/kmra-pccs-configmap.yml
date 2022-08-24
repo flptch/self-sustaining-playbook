@@ -1,0 +1,60 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-env-cm
+  namespace: {{ .Release.Namespace }}
+data:
+  default.json: |
+    {
+      "HTTPS_PORT" : {{ .Values.pccs.main.port | quote }},
+      "hosts" : {{ .Values.pccs.hostname | quote }},
+      "uri": {{ .Values.pccs.main.sgx_provisioning_api_url | quote }},
+      "ApiKey": {{ .Values.pccs.main.api_key | quote }},
+      "proxy" : {{ .Values.https_proxy | default "" | quote }},
+      "RefreshSchedule": "0 0 1 * * *",
+      "UserTokenHash" : {{ .Values.pccs.main.user_pass | quote }},
+      "AdminTokenHash" : {{ .Values.pccs.main.admin_pass | quote }},
+      "CachingFillMode" : "LAZY",
+      "LogLevel" : {{ .Values.pccs.main.log_level | quote }},
+      "DB_CONFIG" : "sqlite",
+      "sqlite" : {
+        "database" : {{ .Values.pccs.db_name | quote }},
+        "username" : {{ .Values.pccs.db_user | quote }},
+        "password" : {{ .Values.pccs.db_password | quote }},
+        "options" : {
+          "host": "localhost",
+          "dialect": "sqlite",
+          "pool": {
+            "max": 5,
+            "min": 0,
+            "acquire": 30000,
+            "idle": 10000
+          },
+          "define": {
+            "freezeTableName": true
+          },
+          "logging" : false,
+          "storage": {{ printf "/tmp/%s.db" .Values.pccs.db_name | quote }}
+        }
+      },
+      "myql" : {
+        "database" : {{ .Values.pccs.db_name | quote }},
+        "username" : {{ .Values.pccs.db_user | quote }},
+        "password" : {{ .Values.pccs.db_password | quote }},
+        "options" : {
+          "host": "localhost",
+          "dialect": "mysql",
+          "pool": {
+            "max": 5,
+            "min": 0,
+            "acquire": 30000,
+            "idle": 10000
+          },
+          "define": {
+            "freezeTableName": true
+          },
+          "logging" : false
+        }
+      }
+    }

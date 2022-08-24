@@ -1,0 +1,111 @@
+##
+##   Copyright (c) 2020-2022 Intel Corporation.
+##
+##   Licensed under the Apache License, Version 2.0 (the "License");
+##   you may not use this file except in compliance with the License.
+##   You may obtain a copy of the License at
+##
+##       http://www.apache.org/licenses/LICENSE-2.0
+##
+##   Unless required by applicable law or agreed to in writing, software
+##   distributed under the License is distributed on an "AS IS" BASIS,
+##   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+##   See the License for the specific language governing permissions and
+##   limitations under the License.
+##
+---
+# reboot early to build drivers against the target kernel version
+- meta: flush_handlers
+
+- name: install dependencies
+  include_role:
+    name: install_dependencies
+
+- name: regather facts in case mgmt interface changed since start of play
+  setup:
+    gather_subset:
+      - network
+
+- name: register mgmt driver
+  shell: "set -o pipefail && ethtool -i {{ hostvars[inventory_hostname]['ansible_default_ipv4']['interface'] }} | grep driver | sed 's/^driver: //'"
+  args:
+    executable: /bin/bash
+  register: mgmt_interface_driver
+  changed_when: false
+
+- name: determine which kernel drivers will be used
+  set_fact:
+    requested_drivers:
+      i40e: "{{ dataplane_interfaces | selectattr('pf_driver', 'contains', 'i40e') | list | length>0 }}"
+      ice: "{{ dataplane_interfaces | selectattr('pf_driver', 'contains', 'ice') | list | length>0 }}"
+      iavf: "{{ dataplane_interfaces | select('search', 'iavf') | list | length > 0 }}"
+
+- name: determine custom kernel source dir
+  find:
+    path: "{{ (project_root_dir, 'kernels') | path_join }}"
+    file_type: directory
+    patterns: 'gpu_kernel'
+    recurse: yes
+  register: custom_kernel_source
+  when:
+    - gpu_dp_enabled is defined and gpu_dp_enabled
+    - gpu_dp_kernel_version is defined and ansible_kernel == gpu_dp_kernel_version
+
+- name: configure new kernel source
+  make:
+    chdir: "{{ custom_kernel_source.files[0].path }}"
+    target: "{{ item }}"
+  with_items:
+    - oldconfig
+    - prepare
+  when:
+    - gpu_dp_enabled is defined and gpu_dp_enabled
+    - gpu_dp_kernel_version is defined and ansible_kernel == gpu_dp_kernel_version
+
+- name: ensure /usr/lib/modules/$(uname -r)/build points to correct custom kernel source
+  file:
+    state: link
+    src: "{{ custom_kernel_source.files[0].path }}"
+    dest: "/usr/lib/modules/{{ ansible_kernel }}/build"
+    force: yes
+    mode: 0777
+  when:
+    - ansible_distribution == "CentOS"
+    - ansible_distribution_version >= '8'
+    - gpu_dp_kernel_version is defined and ansible_kernel == gpu_dp_kernel_version
+
+- name: determine kernel source dir
+  find:
+    path: /usr/src/kernels/
+    file_type: directory
+    use_regex: yes
+    patterns: '^(?!gpu.*$).*' # match if not start with 'gpu'
+  register: kernel_source
+  when:
+    - ansible_distribution == "CentOS"
+    - ansible_distribution_version >= '8'
+    - gpu_dp_kernel_version is not defined or ansible_kernel != gpu_dp_kernel_version
+
+- name: ensure /usr/lib/modules/$(uname -r)/build points to correct kernel source
+  file:
+    state: link
+    src: "{{ kernel_source.files[0].path }}"
+    dest: "/usr/lib/modules/{{ ansible_kernel }}/build"
+    force: yes
+    mode: 0777
+  when:
+    - ansible_distribution == "CentOS"
+    - ansible_distribution_version >= '8'
+    - gpu_dp_kernel_version is not defined or ansible_kernel != gpu_dp_kernel_version
+
+# update i40e drivers
+- include: i40e.yml
+  when: requested_drivers.i40e
+
+# update ice drivers
+- include: ice.yml
+  when: requested_drivers.ice
+
+# update iavf drivers
+- include: iavf.yml
+  when: requested_drivers.iavf

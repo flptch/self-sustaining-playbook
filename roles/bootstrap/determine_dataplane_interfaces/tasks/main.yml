@@ -1,0 +1,39 @@
+##
+##   Copyright (c) 2020-2022 Intel Corporation.
+##
+##   Licensed under the Apache License, Version 2.0 (the "License");
+##   you may not use this file except in compliance with the License.
+##   You may obtain a copy of the License at
+##
+##       http://www.apache.org/licenses/LICENSE-2.0
+##
+##   Unless required by applicable law or agreed to in writing, software
+##   distributed under the License is distributed on an "AS IS" BASIS,
+##   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+##   See the License for the specific language governing permissions and
+##   limitations under the License.
+##
+---
+- name: user configured dataplane_interface names
+  debug: var=dataplane_interfaces
+
+- name: install dependencies
+  include_role:
+    name: install_dependencies
+
+- name: initializing new dataplane interfaces list
+  set_fact:
+    new_dataplane_interfaces: []
+
+- name: get dataplane interface names
+  include: dataplane-interfaces.yml
+  loop: '{{ dataplane_interfaces }}'
+  loop_control:
+    loop_var: nic
+
+- name: replace original dataplane_interfaces
+  set_fact:
+    dataplane_interfaces: "{{ new_dataplane_interfaces }}"
+
+- name: discovered dataplane_interface names
+  debug: var=dataplane_interfaces

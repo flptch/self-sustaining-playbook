@@ -1,0 +1,78 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}
+  labels:
+    app: {{ .Release.Name }}
+  namespace: {{ .Release.Namespace }}
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Release.Name }}
+    spec:
+      hostNetwork: true
+      serviceAccountName: {{ .Release.Name }}
+      containers:
+      - name: {{ .Release.Name }}
+        image: "{{ .Values.pccs.main.image.repo }}/{{ .Values.pccs.main.image.name }}:{{ .Values.pccs.main.image.tag }}"
+        imagePullPolicy: {{ .Values.pccs.main.image.pullPolicy }}
+        volumeMounts:
+          - name: pccs-config
+            mountPath: /opt/intel/pccs/config
+            readOnly: true
+          - name: pccs-tls
+            mountPath: /opt/intel/pccs/ssl_key
+            readOnly: true
+          - name: tmpfs
+            mountPath: /tmp
+            subPath: tmp
+          - name: tmpfs
+            mountPath: /opt/intel/pccs/logs
+            subPath: logs
+        resources:
+          limits:
+            cpu: 500m
+            memory: 500Mi
+          requests:
+            cpu: 200m
+            memory: 200Mi
+        securityContext:
+          runAsUser: 65333
+          readOnlyRootFilesystem: true
+      affinity:
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 1
+              preference:
+                matchExpressions:
+                - key: app
+                  operator: In
+                  values:
+                  - kmra
+      volumes:
+      - name: pccs-config
+        configMap:
+          name: {{ .Release.Name }}-env-cm
+          items:
+            - key: default.json
+              path: default.json
+      - name: pccs-tls
+        secret:
+          secretName: {{ .Release.Name }}-tls
+          items:
+          - key: tls.key
+            path: private.pem
+          - key: tls.cert
+            path: file.crt
+      - name: tmpfs
+        emptyDir:
+          medium: Memory
+          sizeLimit: 64Mi
+

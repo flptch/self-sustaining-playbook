@@ -1,0 +1,20 @@
+{
+  "CN": "kubernetes",
+  "hosts": [
+    "127.0.0.1",
+    "{{ node_ip }}",
+    "{{ node_hostname }}",
+{% if node_hostname != node_inventory_name %}
+    "{{ node_inventory_name }}",
+{% endif %}
+    "kubernetes",
+    "kubernetes.default",
+    "kubernetes.default.svc",
+    "kubernetes.default.svc.cluster",
+    "kubernetes.default.svc.cluster.local"
+  ],
+  "key": {
+    "algo": "rsa",
+    "size": 2048
+  }
+}

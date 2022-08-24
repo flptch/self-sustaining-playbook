@@ -1,0 +1,62 @@
+##
+##   Copyright (c) 2020-2022 Intel Corporation.
+##
+##   Licensed under the Apache License, Version 2.0 (the "License");
+##   you may not use this file except in compliance with the License.
+##   You may obtain a copy of the License at
+##
+##       http://www.apache.org/licenses/LICENSE-2.0
+##
+##   Unless required by applicable law or agreed to in writing, software
+##   distributed under the License is distributed on an "AS IS" BASIS,
+##   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+##   See the License for the specific language governing permissions and
+##   limitations under the License.
+##
+---
+- name: create Userspace CNI net-attach-def object to be used with OVS-DPDK
+  k8s:
+    state: present
+    definition: "{{ lookup('file', '../templates/userspace-ovs.yaml') | from_yaml }}"
+  when:
+    - example_net_attach_defs is defined
+    - example_net_attach_defs.userspace_ovs_dpdk | default(false) | bool
+    - inventory_hostname == groups['kube_control_plane'][0]
+
+- name: create Userspace CNI net-attach-def object to be used with VPP
+  k8s:
+    state: present
+    definition: "{{ lookup('file', '../templates/userspace-vpp.yaml') | from_yaml }}"
+  when:
+    - example_net_attach_defs is defined
+    - example_net_attach_defs.userspace_vpp | default(false) | bool
+    - inventory_hostname == groups['kube_control_plane'][0]
+
+- name: create net-attach-def object to be used with SRIOV CNI and Device Plugin
+  k8s:
+    state: present
+    definition: "{{ lookup('file', '../templates/sriov-net-dp.yml') | from_yaml }}"
+  when:
+    - example_net_attach_defs is defined
+    - example_net_attach_defs.sriov_net_dp | default(false) | bool
+    - inventory_hostname == groups['kube_control_plane'][0]
+
+- name: create net-attach-def object to be used with CNDP device plugin
+  vars:
+    cndp_k8s_manifest_dir: "{{ (project_root_dir, 'cndp_k8s_manifest') |  path_join }}"
+  block:
+    - name: create directory for CNDP k8s manifest files
+      file:
+        path: "{{ cndp_k8s_manifest_dir }}"
+        state: directory
+        mode: "644"
+
+    - name: create CNDP network attachment definitions
+      include_tasks: cndp_net_attach_def.yml
+
+  when:
+    - cndp_dp_enabled | default(false)
+    - cndp_net_attach_def_enabled | default(false)
+    - inventory_hostname == groups['kube_control_plane'][0]
+    - (ansible_distribution == "Ubuntu" and ansible_distribution_version >= "20.04") or
+      (ansible_os_family == "RedHat" and ansible_distribution_version >= "8.5")

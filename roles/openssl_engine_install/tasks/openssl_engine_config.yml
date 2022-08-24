@@ -1,0 +1,173 @@
+##
+##   Copyright (c) 2020-2022 Intel Corporation.
+##
+##   Licensed under the Apache License, Version 2.0 (the "License");
+##   you may not use this file except in compliance with the License.
+##   You may obtain a copy of the License at
+##
+##       http://www.apache.org/licenses/LICENSE-2.0
+##
+##   Unless required by applicable law or agreed to in writing, software
+##   distributed under the License is distributed on an "AS IS" BASIS,
+##   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+##   See the License for the specific language governing permissions and
+##   limitations under the License.
+##
+---
+- name: install dependencies for OpenSSL*Engine
+  include_role:
+    name: install_dependencies
+
+# install libarchive required version in CentOS / RHEL >= 8.3
+- name: create dir {{ openssl_engine_dir }}/libarchive_install in CentOS / RHEL >= 8.3
+  file:
+    path: "{{ openssl_engine_dir }}/libarchive_install"
+    state: directory
+    mode: "u=rwx,g=rx,o=rx"
+  when: ansible_os_family == "RedHat" and ansible_distribution_version >= '8.3'
+
+- name: download and unarchive libarchive required version for CentOS / RHEL >= 8.3
+  unarchive:
+    src: "{{ libarchive_url }}"
+    dest: "{{ openssl_engine_dir }}/libarchive_install"
+    remote_src: yes
+    mode: "u=rwx,g=rx,o=rx"
+  register: libarchive_rhel_version
+  until: libarchive_rhel_version is not failed
+  retries: 5
+  when: ansible_os_family == "RedHat" and ansible_distribution_version >= '8.3'
+
+- name: configure libarchive with PATH in CentOS / RHEL >= 8.3
+  command: './configure --prefix=/usr --disable-static'
+  args:
+    chdir: "{{ openssl_engine_dir }}/libarchive_install/libarchive-3.5.1"
+  changed_when: true
+  when: ansible_os_family == "RedHat" and ansible_distribution_version >= '8.3'
+
+- name: detect number of cores on system
+  command: nproc
+  register: nproc_out
+  changed_when: false
+
+- name: make install libarchive in CentOS / RHEL >= 8.3
+  make:
+    chdir: "/{{ openssl_engine_dir }}/libarchive_install/libarchive-3.5.1"
+    target: install
+  environment:
+    "MAKEFLAGS": "-j{{ nproc_out.stdout | int }}"
+  when: ansible_os_family == "RedHat" and ansible_distribution_version >= '8.3'
+
+# Building Intel® Integrated Performance Primitives Cryptography
+- name: create directory for Intel IPPC dependencies
+  file:
+    path: "{{ openssl_engine_dir }}/ipp_cryptography"
+    state: directory
+    mode: "u=rwx,g=rx,o=rx"
+
+- name: clone Intel IPP-Cryptography repository
+  git:
+    repo: "{{ ipp_crypto_url }}"
+    version: "{{ ipp_crypto_version }}"
+    dest: "{{ openssl_engine_dir }}/ipp_cryptography"
+    force: yes
+
+- name: prepare the build by running cmake for Intel IPP-Cryptography once successfully configured
+  command: 'cmake . -Bbuild -DCMAKE_INSTALL_PREFIX=/usr'
+  args:
+    chdir: "{{ openssl_engine_dir }}/ipp_cryptography/sources/ippcp/crypto_mb"
+  changed_when: true
+
+- name: build Intel IPP-Cryptography
+  command: 'make -j{{ nproc_out.stdout | int }}'
+  args:
+    chdir: "{{ openssl_engine_dir }}/ipp_cryptography/sources/ippcp/crypto_mb/build"
+  changed_when: true
+
+- name: make install Intel IPP-Cryptography
+  make:
+    chdir: "{{ openssl_engine_dir }}/ipp_cryptography/sources/ippcp/crypto_mb/build"
+    target: install
+  environment:
+    "MAKEFLAGS": "-j{{ nproc_out.stdout | int }}"
+  become: yes
+
+# Building the Intel® Multi-Buffer Crypto for IPsec Library
+- name: create directory for Intel MBC-IPsec dependencies
+  file:
+    path: "{{ openssl_engine_dir }}/imbc_ipsec"
+    state: directory
+    mode: "u=rwx,g=rx,o=rx"
+
+- name: clone Intel MBC-IPsec repository
+  git:
+    repo: "{{ intel_ipsec_url }}"
+    version: "{{ intel_ipsec_version }}"
+    dest: "{{ openssl_engine_dir }}/imbc_ipsec"
+    force: yes
+
+- name: build Intel MBC-IPsec Library
+  command: 'make -j{{ nproc_out.stdout | int }} SAFE_DATA=y SAFE_PARAM=y SAFE_LOOKUP=y'
+  args:
+    chdir: "{{ openssl_engine_dir }}/imbc_ipsec"
+  changed_when: true
+
+- name: make install Intel MBC-IPsec Library
+  command: 'make install -j{{ nproc_out.stdout | int }} NOLDCONFIG=y'
+  args:
+    chdir: "{{ openssl_engine_dir }}/imbc_ipsec"
+  become: yes
+  changed_when: true
+
+# Building the Intel Quick Assist Technology Engine for OpenSSL
+- name: create directory for OpenSSL*Engine dependencies
+  file:
+    path: "{{ openssl_engine_dir }}/openssl_engine"
+    state: directory
+    mode: "u=rwx,g=rx,o=rx"
+
+- name: clone OpenSSL*Engine repository
+  git:
+    repo: "{{ openssl_engine_url }}"
+    version: "{{ openssl_engine_version }}"
+    dest: "{{ openssl_engine_dir }}/openssl_engine"
+    force: yes
+
+- name: autogen configuration for OpenSSL*Engine
+  command: ./autogen.sh
+  args:
+    chdir: "{{ openssl_engine_dir }}/openssl_engine"
+  changed_when: true
+
+- name: check all configuration is present for OpenSSL*Engine
+  command:  "./configure --enable-multibuff_offload --enable-ipsec_offload --enable-multibuff_ecx --enable-qat_sw"
+  args:
+    chdir: "{{ openssl_engine_dir }}/openssl_engine"
+  changed_when: false
+
+- name: Build OpenSSL*Engine Library once successfully configured
+  command: 'make -j{{ nproc_out.stdout | int }}'
+  args:
+    chdir: "{{ openssl_engine_dir }}/openssl_engine"
+  changed_when: true
+
+- name: make install OpenSSL*Engine
+  make:
+    chdir: "{{ openssl_engine_dir }}/openssl_engine"
+    target: install
+  environment:
+    "MAKEFLAGS": "-j{{ nproc_out.stdout | int }}"
+
+- name: update the dynamic linker cache
+  command: "ldconfig"
+  when: ansible_os_family == "RedHat"
+  changed_when: true
+
+- name: once OpenSSL*Engine in place ensure it loads successfully
+  command: openssl engine -v qatengine
+  register: confirm_openssl_engine
+  changed_when: true
+
+- name: OpenSSL*Engine command returns errors, playbook terminated
+  fail:
+     msg: "OpenSSL Engine failed to load... Cause of failure can be unsupported hardware or misconfiguration of Intel QAT OpenSSL*Engine"
+  when: "openssl_engine_version not in confirm_openssl_engine.stdout"

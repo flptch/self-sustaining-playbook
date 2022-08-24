@@ -1,0 +1,39 @@
+##
+##   Copyright (c) 2020-2022 Intel Corporation.
+##
+##   Licensed under the Apache License, Version 2.0 (the "License");
+##   you may not use this file except in compliance with the License.
+##   You may obtain a copy of the License at
+##
+##       http://www.apache.org/licenses/LICENSE-2.0
+##
+##   Unless required by applicable law or agreed to in writing, software
+##   distributed under the License is distributed on an "AS IS" BASIS,
+##   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+##   See the License for the specific language governing permissions and
+##   limitations under the License.
+##
+---
+- name: check interfaces in system
+  command: "inxi -n"
+  register: check_nics_in_system
+  changed_when: true
+
+- name: validate host vars interface names with system interface names before FW update
+  assert:
+    that: "item.name in check_nics_in_system.stdout"
+    fail_msg: "host vars defined dataplane interface name != interface name found in system. Kindly, select correct interface name"
+    success_msg: "host vars defined dataplane interface name = interface name found in system, verification completed"
+  with_items: "{{ dataplane_interfaces }}"
+
+- name: update NIC firmware
+  include_tasks: update.yml
+  vars:
+    interface_name: "{{ item }}"
+    nic_module: "{{ ansible_facts[item]['module'] }}"
+  when:
+    # "i40e" (FVL) or "ice" (CVL)
+    - ansible_facts[item]['module'] in ['i40e', 'ice']
+    - update_nic_firmware | default(false) | bool
+  # update all dataplane_interfaces
+  with_items: "{{ dataplane_interfaces | map(attribute='name') | list | unique }}"

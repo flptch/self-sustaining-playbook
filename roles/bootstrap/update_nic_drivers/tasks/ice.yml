@@ -1,0 +1,81 @@
+##
+##   Copyright (c) 2020-2022 Intel Corporation.
+##
+##   Licensed under the Apache License, Version 2.0 (the "License");
+##   you may not use this file except in compliance with the License.
+##   You may obtain a copy of the License at
+##
+##       http://www.apache.org/licenses/LICENSE-2.0
+##
+##   Unless required by applicable law or agreed to in writing, software
+##   distributed under the License is distributed on an "AS IS" BASIS,
+##   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+##   See the License for the specific language governing permissions and
+##   limitations under the License.
+##
+---
+- name: get current ice driver version
+  command: modinfo ice -F version
+  register: ice_installed_version
+  changed_when: false
+  failed_when: false
+
+- debug:
+    msg: "Currently installed ice version: {{ ice_installed_version.stdout }}"
+
+- name: unload ice module
+  modprobe:
+    name: ice
+    state: absent
+  when:
+    - ice_installed_version.stdout != ice_driver_version
+    - mgmt_interface_driver.stdout != ice_driver_name
+    - not update_kernel
+    - ansible_os_family == "RedHat" or
+      (ansible_distribution == "Ubuntu" and ansible_distribution_version < "22.04")
+
+- name: update ice driver
+  block:
+    - name: download ice driver
+      become: yes
+      get_url:
+        url: "{{ ice_driver_url }}"
+        dest: "{{ project_root_dir }}"
+        checksum: "{{ ice_driver_checksum }}"
+        timeout: 60
+      register: ice_download
+      until: ice_download is not failed
+      retries: 5
+
+    - name: untar ice driver sources
+      unarchive:
+        src: "{{ ice_download.dest }}"
+        dest: "{{ project_root_dir }}"
+        list_files: yes
+        remote_src: yes
+        mode: 0774
+      become: yes
+      register: ice_untar
+
+    - name: build and install ice driver
+      make:
+        chdir: "{{ (ice_untar.dest, ice_untar.files[0], 'src') | path_join }}"
+        target: "{{ item }}"
+      become: yes
+      loop:
+        - clean
+        - install
+  when: ice_installed_version.stdout != ice_driver_version
+
+- name: reboot node after driver update
+  become: yes
+  reboot:
+    reboot_timeout: 1200
+  when:
+    - (ice_installed_version.stdout != ice_driver_version and mgmt_interface_driver.stdout == ice_driver_name) or
+      (ice_installed_version.stdout != ice_driver_version and (ansible_distribution == "Ubuntu" and ansible_distribution_version >= "22.04" or update_kernel))
+
+- name: ensure that ice module is loaded
+  modprobe:
+    name: ice
+    state: present

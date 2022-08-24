@@ -1,0 +1,81 @@
+##
+##   Copyright (c) 2020-2022 Intel Corporation.
+##
+##   Licensed under the Apache License, Version 2.0 (the "License");
+##   you may not use this file except in compliance with the License.
+##   You may obtain a copy of the License at
+##
+##       http://www.apache.org/licenses/LICENSE-2.0
+##
+##   Unless required by applicable law or agreed to in writing, software
+##   distributed under the License is distributed on an "AS IS" BASIS,
+##   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+##   See the License for the specific language governing permissions and
+##   limitations under the License.
+##
+---
+- name: get current i40e driver version
+  command: modinfo i40e -F version
+  register: i40e_installed_version
+  changed_when: false
+  failed_when: false
+
+- debug:
+    msg: "Currently installed i40e version: {{ i40e_installed_version.stdout }}"
+
+- name: unload i40e module
+  modprobe:
+    name: i40e
+    state: absent
+  when:
+    - i40e_installed_version.stdout != i40e_driver_version
+    - mgmt_interface_driver.stdout != i40e_driver_name
+    - not update_kernel
+    - ansible_os_family == "RedHat" or
+      (ansible_distribution == "Ubuntu" and ansible_distribution_version < "22.04")
+
+- name: update i40e driver
+  block:
+    - name: download i40e driver
+      get_url:
+        url: "{{ i40e_driver_url }}"
+        dest: "{{ project_root_dir }}"
+        checksum: "{{ i40e_driver_checksum }}"
+        mode: '0644'
+        timeout: 60
+      register: i40e_download
+      until: i40e_download is not failed
+      retries: 5
+
+    - name: untar i40e driver sources
+      unarchive:
+        src: "{{ i40e_download.dest }}"
+        dest: "{{ project_root_dir }}"
+        list_files: yes
+        remote_src: yes
+        mode: '0774'
+      become: yes
+      register: i40e_untar
+
+    - name: build and install i40e driver
+      make:
+        chdir: "{{ i40e_untar.dest }}/{{ i40e_untar.files[0] }}/src"
+        target: "{{ item }}"
+      become: yes
+      with_items:
+        - clean
+        - install
+  when: i40e_installed_version.stdout != i40e_driver_version
+
+- name: reboot node after driver update
+  become: yes
+  reboot:
+    reboot_timeout: 1200
+  when:
+    - (i40e_installed_version.stdout != i40e_driver_version and mgmt_interface_driver.stdout == i40e_driver_name) or
+      (i40e_installed_version.stdout != i40e_driver_version and (ansible_distribution == "Ubuntu" and ansible_distribution_version >= "22.04" or update_kernel))
+
+- name: ensure that i40e module is loaded
+  modprobe:
+    name: i40e
+    state: present

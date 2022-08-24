@@ -1,0 +1,91 @@
+##
+##   Copyright (c) 2020-2022 Intel Corporation.
+##
+##   Licensed under the Apache License, Version 2.0 (the "License");
+##   you may not use this file except in compliance with the License.
+##   You may obtain a copy of the License at
+##
+##       http://www.apache.org/licenses/LICENSE-2.0
+##
+##   Unless required by applicable law or agreed to in writing, software
+##   distributed under the License is distributed on an "AS IS" BASIS,
+##   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+##   See the License for the specific language governing permissions and
+##   limitations under the License.
+##
+---
+- name: Check if dpdk_version is defined
+  assert:
+    that:
+    - dpdk_version is defined
+    fail_msg: "Required variable 'dpdk_version' is not defined"
+
+- name: install dependencies
+  include_role:
+    name: install_dependencies
+
+- name: download DPDK
+  unarchive:
+    src: "{{ dpdk_url }}"
+    dest: "{{ project_root_dir }}"
+    remote_src: yes
+    list_files: yes
+    mode: 0755
+    extra_opts:
+      - "--transform"
+      - "s/^dpdk.*-{{ dpdk_version }}/dpdk-{{ dpdk_version }}/"
+  register: dpdk_download
+
+- name: set local dpdk directory path
+  set_fact:
+    dpdk_dir: "{{ (dpdk_download.dest, dpdk_download.files[0]) | path_join }}"
+    dpdk_base_name: "{{ dpdk_download.files[0] | regex_replace('\\/$', '') }}"
+
+- name: Apply DPDK patches if provided
+  block:
+    - name: check if local DPDK patches dir exists
+      stat:
+        path: "{{ dpdk_local_patches_dir }}"
+      delegate_to: "localhost"
+      register: dpdk_patches_dir_exists
+      become: false
+
+    - name: find DPDK patches
+      find:
+        paths: "{{ (dpdk_local_patches_dir, dpdk_base_name) | path_join }}"
+        recurse: yes
+      when:
+        - dpdk_patches_dir_exists.stat.exists | bool
+        - dpdk_patches_dir_exists.stat.isdir | bool
+      delegate_to: "localhost"
+      register: patches_found
+      become: false
+
+    - name: apply DPDK patches
+      patch:
+        remote_src: no
+        src: "{{ item.path }}"
+        basedir: "{{ dpdk_dir }}"
+        strip: "{{ dpdk_local_patches_strip }}"
+        state: present
+      with_items: "{{ patches_found.files }}"
+      when:
+        - not patches_found.skipped | default(false)
+        - patches_found.matched > 0
+
+    - name: warn user if patches were not found
+      fail:
+        msg: "[WARNING] DPDK patches were not found, no patches been applied."
+      when:
+        - patches_found.skipped | default(false) or patches_found.matched == 0
+      ignore_errors: true
+
+  when: dpdk_local_patches_dir is defined
+
+- name: include install_dpdk task for DPDK <= 20.08 versions
+  include: "install_dpdk_make.yml"
+  when: dpdk_version is version("19.11", ">=") and dpdk_version is version("20.08", "<")
+
+- name: include install_dpdk task for DPDK >= 20.08 versions
+  include: "install_dpdk_meson.yml"
+  when: dpdk_version is version("20.08", ">=")

@@ -1,0 +1,16 @@
+{
+  "hosts": [
+    "{{ service_name }}.{{ k8s_namespace }}.svc.{{ csr_cluster_name | default("cluster.local") }}",
+    "{{ service_name }}.{{ k8s_namespace }}.svc",
+    "{{ service_name }}.{{ k8s_namespace }}",
+    "{{ service_name }}"
+  ],
+  "CN": "system:node:{{ service_name }}.{{ k8s_namespace }}.svc",
+  "key": {
+    "algo": "rsa",
+    "size": 2048
+  },
+  "names": [{
+    "O": "system:nodes"
+  }]
+}

@@ -1,0 +1,51 @@
+##
+##   Copyright (c) 2020-2022 Intel Corporation.
+##
+##   Licensed under the Apache License, Version 2.0 (the "License");
+##   you may not use this file except in compliance with the License.
+##   You may obtain a copy of the License at
+##
+##       http://www.apache.org/licenses/LICENSE-2.0
+##
+##   Unless required by applicable law or agreed to in writing, software
+##   distributed under the License is distributed on an "AS IS" BASIS,
+##   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+##   See the License for the specific language governing permissions and
+##   limitations under the License.
+##
+---
+- name: install packages on RHEL-based distro
+  include_tasks: rhel.yml
+  when: ansible_os_family == "RedHat"
+
+- name: install packages on Debian-based distro
+  include_tasks: debian.yml
+  when: ansible_os_family == "Debian"
+
+#net_attach_def, docker registry
+- name: upgrade Python wheel and setuptools
+  pip:
+    name:
+      - wheel==0.34.2
+      - setuptools<=44
+    extra_args: --upgrade
+
+#pinned python packages versions
+- name: install Python packages
+  pip:
+    name:
+      - jmespath==0.9.5
+      - ruamel.yaml==0.16.13
+      - cachetools==4.2.1
+      - markupsafe==1.1.1
+      - jinja2==2.11.3
+      - openshift==0.12.1
+      - kubernetes==12.0.1
+      - six>=1.15.0
+      - websocket-client==0.58.0
+      - oauthlib==3.1.0
+    state: present
+  register: pip_result
+  retries: 5
+  until: pip_result is succeeded
+  delay: 5

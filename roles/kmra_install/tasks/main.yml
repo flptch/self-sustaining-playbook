@@ -1,0 +1,256 @@
+##
+##   Copyright (c) 2020-2022 Intel Corporation.
+##
+##   Licensed under the Apache License, Version 2.0 (the "License");
+##   you may not use this file except in compliance with the License.
+##   You may obtain a copy of the License at
+##
+##       http://www.apache.org/licenses/LICENSE-2.0
+##
+##   Unless required by applicable law or agreed to in writing, software
+##   distributed under the License is distributed on an "AS IS" BASIS,
+##   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+##   See the License for the specific language governing permissions and
+##   limitations under the License.
+##
+---
+- name: combine defaults and user provided vars
+  set_fact:
+    kmra: "{{ kmra_defaults | combine(kmra | default({}), recursive=True) }}"
+  no_log: true
+
+- name: determine machine type
+  include_role:
+    name: check_machine_type
+  when:
+    - inventory_hostname == groups['kube_node'][0]
+
+- name: prepare worker node
+  block:
+    - name: create sgx_prv group
+      group:
+        name: sgx_prv
+        state: present
+      when:
+        - (ansible_distribution == "Ubuntu" and ansible_distribution_version >= '21.04')
+          or (ansible_os_family == "RedHat" and ansible_distribution_version >= '8.4')
+
+    - name: add user to sgx_prv group
+      user:
+        name: "{{ ansible_user_id }}"
+        groups: sgx_prv
+        append: yes
+      when:
+        - (ansible_distribution == "Ubuntu" and ansible_distribution_version >= '21.04')
+          or (ansible_os_family == "RedHat" and ansible_distribution_version >= '8.4')
+
+    - name: create udev rules
+      blockinfile:
+        path: /etc/udev/rules.d/10-sgx.rules
+        create: yes
+        mode: '0644'
+        block: |
+          SUBSYSTEM=="misc",KERNEL=="enclave",MODE="0666"
+          SUBSYSTEM=="misc",KERNEL=="provision",GROUP="sgx_prv",MODE="0660"
+          SUBSYSTEM=="sgx",KERNEL=="sgx/enclave",MODE="0666"
+          SUBSYSTEM=="sgx",KERNEL=="sgx/provision",MODE="0660"
+          SUBSYSTEM=="misc",KERNEL=="sgx_enclave",MODE="0666",SYMLINK+="sgx/enclave"
+          SUBSYSTEM=="misc",KERNEL=="sgx_provision",GROUP="sgx_prv",MODE="0660",SYMLINK+="sgx/provision"
+      when:
+        - (ansible_distribution == "Ubuntu" and ansible_distribution_version >= '21.04')
+          or (ansible_os_family == "RedHat" and ansible_distribution_version >= '8.4')
+
+    - name: load udev rules
+      # noqa 305 - shell is used intentionally here
+      shell: udevadm trigger
+      when:
+        - (ansible_distribution == "Ubuntu" and ansible_distribution_version >= '21.04')
+          or (ansible_os_family == "RedHat" and ansible_distribution_version >= '8.4')
+
+    - name: determine sgx_prv GID
+      getent:
+        database: group
+        key: sgx_prv
+  when:
+    - kmra.ctk_loadkey_demo.enabled | bool
+    - inventory_hostname == groups['kube_node'][0]
+    - is_icx | default(false) | bool or
+      is_spr | default(false) | bool
+
+- name: update aesmd/qcnl host settings
+  block:
+    - name: update qcnl configuration pccs url
+      lineinfile:
+        path: /etc/sgx_default_qcnl.conf
+        regexp: '^(\s+)"pccs_url":.*$'
+        line: '\1"pccs_url": "https://{{ kmra.pccs.hostname }}:{{ kmra.pccs.upstream_port }}/sgx/certification/v3/",'
+        state: present
+        mode: 0644
+        backrefs: yes
+
+    - name: update qcnl configuration unsecure cert usage
+      lineinfile:
+        path: /etc/sgx_default_qcnl.conf
+        regexp: '^(\s+)"use_secure_cert":.*$'
+        line: '\1"use_secure_cert": false,'
+        state: present
+        mode: 0644
+        backrefs: yes
+
+    - name: update aesmd service configuration
+      lineinfile:
+        path: /etc/aesmd.conf
+        regexp: '^#default quoting type = ecdsa_256$'
+        line: 'default quoting type = ecdsa_256'
+        state: present
+        mode: 0644
+
+    - name: restart aesmd service to apply config changes
+      service:
+        state: restarted
+        name: aesmd
+
+    - name: get aesmd service facts
+      service_facts:
+      register: service_info
+
+    - debug:
+        var: service_info.ansible_facts.services['aesmd.service'].state
+      failed_when: "'running' not in service_info.ansible_facts.services['aesmd.service'].state"
+  when:
+    - inventory_hostname == groups['kube_node'][0]
+    - kmra.pccs.enabled
+    - is_icx | default(false) | bool or
+      is_spr | default(false) | bool
+
+- name: prepare and deploy kmra
+  block:
+    - name: install dependencies
+      include_role:
+        name: install_dependencies
+
+    - name: cleanup existing artifacts
+      include: cleanup.yml
+
+    - name: label worker node with KMRA label
+      command: kubectl label nodes {{ hostvars[groups['kube_node'][0]]['ansible_hostname'] }} app=kmra --overwrite
+
+    - name: create kmra ns if not existing
+      shell: "set -o pipefail && kubectl create ns {{ kmra.namespace }} -o yaml --dry-run=client | kubectl apply -f -"
+      args:
+        executable: /bin/bash
+      changed_when: true
+
+    - name: create k8s tls secrets for apphsm and ctk apps
+      include: create_tls_secrets.yml
+      vars:
+        kmra_apps:
+          - {
+              name: "{{ kmra.pccs.release_name }}",
+              subj: "{{ kmra.pccs.crt_subj }}",
+              deploy: "{{ kmra.pccs.enabled | default(false) }}"
+            }
+          - {
+              name: "{{ kmra.apphsm.release_name }}",
+              subj: "{{ kmra.apphsm.crt_subj }}",
+              deploy: "{{ kmra.apphsm.enabled | default(false) }}"
+            }
+          - {
+              name: "generic-apphsm-client",
+              subj: { O: "AppHSM",  OU: "{{ kmra.apphsm.generic_client_cert_id }}" },
+              deploy: "{{ kmra.apphsm.enabled | default(false) }}"
+            }
+          - {
+              name: "{{ kmra.ctk_loadkey_demo.release_name }}",
+              subj: "{{ kmra.ctk_loadkey_demo.crt_subj }}",
+              deploy: "{{ kmra.ctk_loadkey_demo.enabled | default(false) }}"
+            }
+
+    - name: create Helm charts directory if needed
+      file:
+        path: "{{ (project_root_dir, 'charts') | path_join }}"
+        state: directory
+        mode: 0755
+
+    - name: copy KMRA Helm chart to the controller node
+      copy:
+        src: "{{ (role_path, 'charts', item.chart) | path_join }}"
+        dest: "{{ (project_root_dir, 'charts')  | path_join }}"
+        mode: 0755
+      loop:
+        - { chart: 'kmra-pccs', deploy: "{{ kmra.pccs.enabled | default(false) }}" }
+        - { chart: 'kmra-apphsm', deploy: "{{ kmra.apphsm.enabled | default(false) }}" }
+        - { chart: 'kmra-ctk', deploy: "{{ kmra.ctk_loadkey_demo.enabled | default(false) }}" }
+      when:
+        - item.deploy
+
+    - name: populate KMRA Helm charts values templates and push to controller node
+      template:
+        src: "{{ item.src }}"
+        dest: "{{ item.dest }}"
+        force: yes
+        mode: preserve
+      loop:
+        - {
+            src: "kmra-pccs-values.yaml.j2",
+            dest: "{{ (project_root_dir, 'charts', 'kmra-pccs-values.yml') | path_join }}",
+            deploy: "{{ kmra.pccs.enabled | default(false) }}"
+          }
+        - {
+            src: "kmra-pccs-rbac-cluster-role.yml.j2",
+            dest: "{{ (kmra.pccs.chart_path, 'templates','kmra-pccs-rbac-cluster-role.yml') | path_join }}",
+            deploy: "{{ kmra.pccs.enabled | default(false) }}"
+          }
+        - {
+            src: "kmra-apphsm-values.yaml.j2",
+            dest: "{{ (project_root_dir, 'charts', 'kmra-apphsm-values.yml') | path_join }}",
+            deploy: "{{ kmra.apphsm.enabled | default(false) }}"
+          }
+        - {
+            src: "kmra-apphsm-rbac-cluster-role.yml.j2",
+            dest: "{{ (kmra.apphsm.chart_path, 'templates', 'kmra-apphsm-rbac-cluster-role.yml') | path_join }}",
+            deploy: "{{ kmra.apphsm.enabled | default(false) }}"
+          }
+        - {
+            src: "kmra-ctk-values.yaml.j2",
+            dest: "{{ (project_root_dir, 'charts', 'kmra-ctk-values.yml') | path_join }}",
+            deploy: "{{ kmra.ctk_loadkey_demo.enabled | default(false) }}"
+          }
+        - {
+            src: "kmra-ctk-loadkey-rbac-cluster-role.yml.j2",
+            dest: "{{ (kmra.ctk_loadkey_demo.chart_path, 'templates', 'kmra-ctk-loadkey-rbac-cluster-role.yml') | path_join }}",
+            deploy: "{{ kmra.ctk_loadkey_demo.enabled | default(false) }}"
+          }
+      when:
+        - item.deploy
+
+    - name: install KMRA pccs helm chart
+      command: >-
+        helm upgrade -i {{ kmra.pccs.release_name }}
+        --namespace {{ kmra.namespace }}
+        -f {{ kmra.pccs.helm_values_file }}
+        {{ kmra.pccs.chart_path }}
+      when:
+        - kmra.pccs.enabled | default(false)
+
+    - name: install KMRA AppHSM helm chart
+      command: >-
+        helm upgrade -i {{ kmra.apphsm.release_name }}
+        --namespace {{ kmra.namespace }}
+        -f {{ kmra.apphsm.helm_values_file }}
+        {{ kmra.apphsm.chart_path }}
+      when:
+        - kmra.apphsm.enabled | default(false)
+
+    - name: install KMRA Ctk loadkey helm chart
+      command: >-
+        helm upgrade -i {{ kmra.ctk_loadkey_demo.release_name }}
+        --namespace {{ kmra.namespace }}
+        -f {{ kmra.ctk_loadkey_demo.helm_values_file }}
+        {{ kmra.ctk_loadkey_demo.chart_path }}
+      when:
+        - kmra.ctk_loadkey_demo.enabled | default(false)
+  when:
+    - inventory_hostname == groups['kube_control_plane'][0]
+    - hostvars[groups['kube_node'][0]]['is_icx'] or
+      hostvars[groups['kube_node'][0]]['is_spr']

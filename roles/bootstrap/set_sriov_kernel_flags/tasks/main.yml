@@ -1,0 +1,30 @@
+##
+##   Copyright (c) 2020-2022 Intel Corporation.
+##
+##   Licensed under the Apache License, Version 2.0 (the "License");
+##   you may not use this file except in compliance with the License.
+##   You may obtain a copy of the License at
+##
+##       http://www.apache.org/licenses/LICENSE-2.0
+##
+##   Unless required by applicable law or agreed to in writing, software
+##   distributed under the License is distributed on an "AS IS" BASIS,
+##   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+##   See the License for the specific language governing permissions and
+##   limitations under the License.
+##
+---
+- name: ensure that sriov settings are disabled when iommu_enabled is false
+  lineinfile:
+    dest: /etc/default/grub
+    regexp: '^GRUB_CMDLINE_LINUX=(.*?){{ sriov_marker }}$'
+    state: absent
+  register: grub
+  notify:
+    - reboot server
+  when: not (iommu_enabled | default(false) | bool)
+
+- name: setup sriov grub commandline parameters
+  include_tasks: setup_sriov_kernel_flags.yml
+  when:
+    - iommu_enabled | default(false) | bool or (on_vms is defined and on_vms)

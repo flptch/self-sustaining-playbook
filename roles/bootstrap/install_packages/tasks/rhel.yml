@@ -1,0 +1,226 @@
+##
+##   Copyright (c) 2020-2022 Intel Corporation.
+##
+##   Licensed under the Apache License, Version 2.0 (the "License");
+##   you may not use this file except in compliance with the License.
+##   You may obtain a copy of the License at
+##
+##       http://www.apache.org/licenses/LICENSE-2.0
+##
+##   Unless required by applicable law or agreed to in writing, software
+##   distributed under the License is distributed on an "AS IS" BASIS,
+##   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+##   See the License for the specific language governing permissions and
+##   limitations under the License.
+##
+---
+- name: enable powertools repository on Rocky >= 8.3
+# noqa 303 - yum is called intenionallly here
+  command: yum config-manager --set-enabled powertools
+  when:
+    - ansible_distribution in ['CentOS', 'Rocky']
+    - ansible_distribution_version >= '8.3'
+
+- name: enable CodeReady Linux Builder repository on RHEL 8
+  rhsm_repository:
+    name: codeready-builder-for-rhel-8-x86_64-rpms
+  when:
+    - ansible_distribution in ['RedHat']
+    - ansible_distribution_version >= '8'
+
+- name: install epel-release on CentOS
+  package:
+    name: epel-release
+  when:
+    - ansible_distribution == "CentOS"
+
+- name: obtain EPEL GPG key on RHEL8
+  rpm_key:
+    state: present
+    key: https://dl.fedoraproject.org/pub/epel/RPM-GPG-KEY-EPEL-8
+  when:
+    - ansible_distribution in ['RedHat', 'Rocky']
+    - ansible_distribution_version >= '8'
+
+- name: install epel-release on RHEL8
+  package:
+    name: https://dl.fedoraproject.org/pub/epel/epel-release-latest-8.noarch.rpm
+  when:
+    - ansible_distribution in ['RedHat', 'Rocky']
+    - ansible_distribution_version >= '8'
+
+- name: get full distribution versions
+  command: cat /etc/redhat-release
+  register: release
+  changed_when: true
+
+- name: set full distribution version
+  set_fact:
+    full_dist_version: "{{ release.stdout | regex_replace('.*(\\d+.\\d+.\\d\\d\\d\\d).*', '\\1') }}"
+
+#- name: update CentOS Vault yum repository on CentOS 8
+#  yum_repository:
+#    name: C{{ full_dist_version }}-base
+#    description: CentOS-{{ full_dist_version }} - Base
+#    file: CentOS-Vault
+#    baseurl: http://vault.centos.org/{{ full_dist_version }}/BaseOS/$basearch/os/
+#    baseurl: http://vault.centos.org/{{ full_dist_version }}/BaseOS/Source/
+#    gpgcheck: yes
+#    gpgkey: file:///etc/pki/rpm-gpg/RPM-GPG-KEY-centosofficial
+#    enabled: yes
+#  when:
+#    - ansible_distribution == "CentOS"
+#    - ansible_distribution_version >= '8' and ansible_distribution_version < '8.3'
+#    - not update_kernel
+
+# CentOS-Vault repo not working for CentOS 8, so install kernel headers directly
+- name: pull matching kernel headers on CentOS 8.3
+  package:
+    name: "{{ item }}"
+    state: present
+  retries: 5
+  delay: 10
+  register: source_status
+  until: source_status is not failed
+  with_items:
+    - "https://vault.centos.org/8.3.2011/BaseOS/x86_64/os/Packages/kernel-headers-4.18.0-240.el8.x86_64.rpm"
+    - "https://vault.centos.org/8.3.2011/BaseOS/x86_64/os/Packages/kernel-devel-4.18.0-240.el8.x86_64.rpm"
+  when:
+    - ansible_distribution == "CentOS"
+    - ansible_distribution_version == '8.3'
+    - not update_kernel
+
+- name: configuration block for CentOS 8.4
+  block:
+    - name: pull matching kernel headers on CentOS 8.4
+      package:
+        name: "{{ item }}"
+        state: present
+      retries: 5
+      delay: 10
+      register: source_status
+      until: source_status is not failed
+      with_items:
+        - "http://mirror.centos.org/centos/8/BaseOS/x86_64/os/Packages/kernel-headers-4.18.0-348.2.1.el8_5.x86_64.rpm"
+        - "http://mirror.centos.org/centos/8/BaseOS/x86_64/os/Packages/kernel-devel-4.18.0-348.2.1.el8_5.x86_64.rpm"
+    #    - "https://vault.centos.org/8.4.2105/BaseOS/x86_64/os/Packages/kernel-headers-4.18.0-305.el8.x86_64.rpm"
+    #    - "https://vault.centos.org/8.4.2105/BaseOS/x86_64/os/Packages/kernel-devel-4.18.0-305.el8.x86_64.rpm"
+      when: not update_kernel
+
+    - name: removing unrequired dependencies in CentOS 8.4
+      package:
+        name:
+          - glibc-lib32
+          - ltp-ddt
+        state: absent
+
+    - name: install required dependencies before update all packages in CentOS 8.4
+    # noqa 403 - intentionally request latest
+      package:
+        name:
+          - python3-libstoragemgmt
+          - kmod-kvdo
+        state: latest
+      when: update_all_packages
+  when:
+    - ansible_distribution == "CentOS"
+    - ansible_distribution_version == '8.4'
+
+- name: pull matching kernel headers on Rocky 8.5
+  package:
+    name: "{{ item }}"
+    state: present
+  retries: 5
+  delay: 10
+  register: source_status
+  until: source_status is not failed
+  with_items:
+    - "https://dl.rockylinux.org/vault/rocky/8.5/BaseOS/x86_64/kickstart/Packages/k/kernel-headers-4.18.0-348.el8.0.2.x86_64.rpm"
+    - "https://dl.rockylinux.org/vault/rocky/8.5/BaseOS/x86_64/kickstart/Packages/k/kernel-devel-4.18.0-348.el8.0.2.x86_64.rpm"
+  when:
+    - ansible_distribution == "Rocky"
+    - ansible_distribution_version == '8.5'
+    - not update_kernel
+
+# pull the matching kernel headers if kernel is not updated
+- name: pull matching kernel headers from configured repos
+# noqa 503 - more than one condition, can't be a handler
+  package:
+    name:
+      - kernel-headers-{{ ansible_kernel }}
+      - kernel-devel-{{ ansible_kernel }}
+  register: kernel_source
+  retries: 3
+  until: kernel_source is success
+  when:
+    - not source_status.changed
+    - (ansible_distribution in ['RedHat', 'Rocky']) or
+      (ansible_distribution == "CentOS" and ansible_distribution_version != '8.4')
+    - not update_kernel
+
+- name: install the 'Development tools' package group
+  package:
+    name: "@Development tools"
+  when:
+    - ansible_os_family == "RedHat"
+
+- name: install pip3
+  package:
+    name: python3-pip
+  when:
+    - ansible_os_family == "RedHat"
+    - ansible_distribution_version >= '8'
+
+- name: update all packages
+  package:
+    name: '*'
+    state: latest # noqa 403
+    exclude: kernel*
+  when:
+    - ansible_os_family == "RedHat"
+    - update_all_packages | default(false)
+
+- name: update to the latest kernel and kernel headers on the Red Hat OS family
+  package:
+    name:
+    - kernel
+    - kernel-devel
+    state: latest # noqa 403
+  notify:
+    - reboot server
+  when:
+    - ansible_os_family == "RedHat"
+    - update_kernel | default(false)
+
+- name: set python is python3
+  alternatives:
+    name: python
+    path: /usr/bin/python3
+    link: /usr/bin/python
+  when:
+    - ansible_os_family == "RedHat"
+    - ansible_distribution_version >= '8'
+
+- name: install command line tools to collect hardware details
+  package:
+    name:
+     - inxi
+     - jq
+    state: present
+  when: ansible_os_family == "RedHat"
+
+# SELINUX will be disabled later stage so, these packages are required when container_runtime is docker
+- name: install packages in RHEL >= 8.4 when container_runtime is docker
+  dnf:
+    name:
+      - bridge-utils
+      - lsof
+      - lvm2
+      - tcpdump
+      - iproute-tc
+      - openssh-server
+      - chrony
+      - iputils
+  when:
+    - ansible_distribution in ['RedHat', 'Rocky'] and ansible_distribution_version >= '8.4'
+    - container_runtime == "docker"

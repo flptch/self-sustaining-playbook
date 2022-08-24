@@ -1,0 +1,54 @@
+##
+##   Copyright (c) 2020-2022 Intel Corporation.
+##
+##   Licensed under the Apache License, Version 2.0 (the "License");
+##   you may not use this file except in compliance with the License.
+##   You may obtain a copy of the License at
+##
+##       http://www.apache.org/licenses/LICENSE-2.0
+##
+##   Unless required by applicable law or agreed to in writing, software
+##   distributed under the License is distributed on an "AS IS" BASIS,
+##   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+##   See the License for the specific language governing permissions and
+##   limitations under the License.
+##
+---
+- name: install dependencies
+  include_role:
+    name: install_dependencies
+
+- name: clone sriov-cni repository
+  git:
+    repo: "{{ sriov_cni_url }}"
+    dest: "{{ sriov_cni_dir }}"
+    version: "{{ sriov_cni_version }}"
+    force: yes
+
+- name: cleans up unused dependencies for golang before sriov-cni plugin
+  command: "go mod tidy"
+  args:
+    chdir: "{{ sriov_cni_dir }}"
+  changed_when: true
+
+- name: update GOFLAGS for golang env before sriov-cni plugin
+  command: "go env -w GOFLAGS=-mod=mod"
+  changed_when: true
+
+- name: build sriov-cni plugin
+  make:
+    chdir: "{{ sriov_cni_dir }}"
+
+- name: create /opt/cni/bin
+  file:
+   path: "/opt/cni/bin"
+   state: directory
+   recurse: yes
+   mode: 0755
+
+- name: install sriov-cni binary to /opt/cni/bin directory
+  copy:
+    src: "{{ sriov_cni_dir }}/build/sriov"
+    dest: /opt/cni/bin/sriov
+    mode: 0755
+    remote_src: yes

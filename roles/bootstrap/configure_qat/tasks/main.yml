@@ -1,0 +1,91 @@
+##
+##   Copyright (c) 2020-2022 Intel Corporation.
+##
+##   Licensed under the Apache License, Version 2.0 (the "License");
+##   you may not use this file except in compliance with the License.
+##   You may obtain a copy of the License at
+##
+##       http://www.apache.org/licenses/LICENSE-2.0
+##
+##   Unless required by applicable law or agreed to in writing, software
+##   distributed under the License is distributed on an "AS IS" BASIS,
+##   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+##   See the License for the specific language governing permissions and
+##   limitations under the License.
+##
+---
+- name: install dependencies
+  include_role:
+    name: install_dependencies
+
+- name: confirm QAT service is correctly installed on the system
+  include_tasks: check_qat_status.yml
+
+- name: create configuration directory if it does not exist
+  file:
+    path: "{{ sriov_config_path }}"
+    state: directory
+    mode: '0700'
+  become: yes
+
+- name: remove existing configuration file if it exists
+  file:
+    path: "{{ sriov_config_path }}/cek_sriov_qat_numvfs"
+    state: absent
+  become: yes
+
+- name: create file for QAT ids to create defined VFs
+  file:
+    path: "{{ sriov_config_path }}/cek_sriov_qat_numvfs"
+    state: touch
+    owner: root
+    group: root
+    mode: '0700'
+  become: yes
+
+- name: populate QAT vf template with vfs per bus location
+  lineinfile:
+    path: "{{ sriov_config_path }}/cek_sriov_qat_numvfs"
+    line: "{{ item.qat_id }} {{ item.qat_sriov_numvfs | default(0) }}"
+    owner: root
+    group: root
+    mode: '0700'
+  become: yes
+  with_items: "{{ qat_devices }}"
+
+- name: create the first dummy record to warmup QAT device on Rocky
+  lineinfile:
+    path: "{{ sriov_config_path }}/cek_sriov_qat_numvfs"
+    insertbefore: "{{ qat_devices[0].qat_id }} {{ qat_devices[0].qat_sriov_numvfs | default(0) }}"
+    line: "{{ qat_devices[0].qat_id }} 2"
+  become: yes
+  when:
+    - ansible_distribution == "Rocky"
+    - qat_devices | length > 0
+    - qat_devices[0].qat_sriov_numvfs > 0
+
+- name: copy QAT SRIOV setup script to /usr/local/bin
+  copy:
+    src: "{{ role_path }}/files/cek_sriov_qat_init"
+    dest: /usr/local/bin/cek_sriov_qat_init
+    owner: root
+    group: root
+    mode: '0700'
+  become: yes
+
+- name: create systemd unit file
+  template:
+    src: cek_sriov_qat_init.service.j2
+    dest: /lib/systemd/system/cek_sriov_qat_init.service
+    owner: root
+    group: root
+    mode: '0644'
+  become: yes
+
+- name: ensure that systemd service is enabled and restarted
+  systemd:
+    name: cek_sriov_qat_init
+    state: restarted
+    enabled: yes
+    daemon_reload: yes
+  become: yes

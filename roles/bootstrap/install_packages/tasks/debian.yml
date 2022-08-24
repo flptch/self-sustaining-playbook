@@ -1,0 +1,159 @@
+##
+##   Copyright (c) 2020-2022 Intel Corporation.
+##
+##   Licensed under the Apache License, Version 2.0 (the "License");
+##   you may not use this file except in compliance with the License.
+##   You may obtain a copy of the License at
+##
+##       http://www.apache.org/licenses/LICENSE-2.0
+##
+##   Unless required by applicable law or agreed to in writing, software
+##   distributed under the License is distributed on an "AS IS" BASIS,
+##   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+##   See the License for the specific language governing permissions and
+##   limitations under the License.
+##
+---
+- name: configure apt proxy
+  lineinfile:
+    path: "/etc/apt/apt.conf.d/00-proxy"
+    regexp: "Acquire::{{ item.type }}::Proxy "
+    line: "Acquire::{{ item.type }}::Proxy \"{{ item.value }}/\";"
+    state: present
+    create: yes
+    mode: 0664
+  with_items:
+    - { type: 'http', value: "{{ http_proxy | default('') }}" }
+    - { type: 'https', value: "{{ https_proxy | default('') }}" }
+  when: http_proxy is defined or https_proxy is defined
+
+- name: reconfigure unattended-upgrades package
+  command: dpkg-reconfigure --priority=low unattended-upgrades
+  args:
+    creates: "/etc/apt/apt.conf.d/20auto-upgrades"
+
+- name: disable automatic package updates
+  replace:
+    path: "{{ item }}"
+    regexp: "(APT::Periodic::.* )\"1\";$"
+    replace: "\\1\"0\";"
+    mode: 0600
+  with_items:
+    - "/etc/apt/apt.conf.d/20auto-upgrades"
+    - "/etc/apt/apt.conf.d/10periodic"
+  ignore_errors: true
+
+- name: install build-essential package
+  apt:
+    name: build-essential
+    update_cache: yes
+  when: ansible_os_family == "Debian"
+  register: apt_res
+  retries: 5
+  until: apt_res is success
+
+- name: install software-properties-common
+  apt:
+    name: software-properties-common
+  when: ansible_os_family == "Debian"
+
+- name: ensure that main, restricted, universe and multiverse repositories are enabled
+  apt_repository:
+    repo: "{{ item }}"
+  with_items:
+    - "deb http://archive.ubuntu.com/ubuntu {{ ansible_distribution_release }} main restricted universe multiverse"
+    - "deb http://archive.ubuntu.com/ubuntu {{ ansible_distribution_release }}-updates main restricted universe multiverse"
+    - "deb http://archive.ubuntu.com/ubuntu {{ ansible_distribution_release }}-backports main restricted universe multiverse"
+    - "deb http://security.ubuntu.com/ubuntu {{ ansible_distribution_release }}-security main restricted universe multiverse"
+  when: ansible_distribution == "Ubuntu"
+
+- name: add kupic repo
+  block:
+    - name: Add kubic apt repo key
+      apt_key:
+        url: >-
+          https://download.opensuse.org/repositories/devel:kubic:libcontainers:stable/xUbuntu_20.04/Release.key
+        state: present
+      register: apt_key_download
+      until: apt_key_download is succeeded
+      retries: 4
+
+    - name: Add kubic apt repo
+      apt_repository:
+        repo: >-
+          deb http://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/stable/xUbuntu_20.04/ /
+        state: present
+        filename: devel-kubic-libcontainers-stable
+  when:
+    - '"docker" not in container_runtime'
+    - ansible_distribution == "Ubuntu" and ansible_distribution_version == '20.04'
+
+- name: apt update
+  apt: update_cache=yes
+  when: ansible_distribution == "Ubuntu"
+
+- name: install zip
+  apt:
+    name: zip
+    update_cache: yes
+  when: ansible_os_family == "Debian"
+
+- name: install pip
+  apt:
+    name: python3-pip
+  when: ansible_os_family == "Debian"
+
+- name: Install python3.8
+  apt:
+    name: python3.8
+    state: present
+  when:
+    - ansible_os_family == "Debian"
+    - ansible_distribution == "Ubuntu" and ansible_distribution_version < '21.04'
+
+- name: Install python3.8-dev
+  apt:
+    name: python3.8-dev
+    state: present
+  when:
+    - ansible_os_family == "Debian"
+    - ansible_distribution == "Ubuntu" and ansible_distribution_version < '21.04'
+
+- name: Set python is python3
+  alternatives:
+    name: python
+    path: /usr/bin/python3
+    link: /usr/bin/python
+  when: ansible_os_family == "Debian"
+
+- name: perform dist-upgrade on Debian OS family
+  apt:
+    upgrade: dist
+    update_cache: yes
+  when:
+    - ansible_os_family == "Debian"
+    - update_all_packages | default(false)
+
+- name: install command line tools to collect hardware details
+  apt:
+    name:
+     - hwinfo
+     - inxi
+     - jq
+  when: ansible_distribution == "Ubuntu"
+
+# hirsute (21.04) package for (image & headers) is 20.04. (Note: ansible_distribution_version will not be returned as the correct version)
+# Depending on the needs, we can split tasks for future Ubuntu releases if necessary.
+# Ref: https://launchpad.net/ubuntu/hirsute/+package/linux-image-generic-hwe-20.04
+#      https://launchpad.net/ubuntu/hirsute/+package/linux-headers-generic-hwe-20.04 
+- name: Update Ubuntu to the latest kernel and kernel headers
+  apt:
+    name:
+    - linux-image-generic-hwe-20.04
+    - linux-headers-generic-hwe-20.04
+    state: latest # noqa 403
+  notify:
+    - reboot server
+  when:
+    - update_kernel | default(false)
+    - ansible_distribution == 'Ubuntu'

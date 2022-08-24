@@ -1,0 +1,44 @@
+##
+##   Copyright (c) 2020-2022 Intel Corporation.
+##
+##   Licensed under the Apache License, Version 2.0 (the "License");
+##   you may not use this file except in compliance with the License.
+##   You may obtain a copy of the License at
+##
+##       http://www.apache.org/licenses/LICENSE-2.0
+##
+##   Unless required by applicable law or agreed to in writing, software
+##   distributed under the License is distributed on an "AS IS" BASIS,
+##   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+##   See the License for the specific language governing permissions and
+##   limitations under the License.
+##
+---
+# Needs to be fixed in Kubespray Repo.
+- name: skip RHEL subscription manager processing
+  replace:
+    path: "{{ playbook_dir }}/kubespray/roles/bootstrap-os/tasks/main.yml"
+    regexp: "(.*)bootstrap-redhat.yml(.*)"
+    replace: "\\1bootstrap-centos.yml\\2"
+    mode: 0600
+  when: target_distribution == "RedHat"
+
+- name: check Host Vars for WA
+  stat:
+    path: "{{ inventory_dir }}/host_vars/{{ item }}.yml"
+  register: host_vars_details
+  with_items: "{{ groups['vm_host'] | default([]) }}"
+
+- name: read Host Vars for WA
+  include_vars: "{{ item.stat.path }}"
+  with_items: "{{ host_vars_details.results }}"
+  when: item.stat.exists
+
+- name: WA remove missing aufs-tools package from kubernetes/preinstall required_pkgs
+  lineinfile:
+    path: "{{ playbook_dir }}/kubespray/roles/kubernetes/preinstall/vars/ubuntu.yml"
+    regexp: '  - aufs-tools'
+    state: absent
+  when:
+    - (target_distribution == "Ubuntu" and target_distribution_version in  ['20.04', '22.04']) or
+      (vm_enabled and vm_image_distribution == "ubuntu" and vm_image_version_ubuntu in  ['20.04', '22.04'])
