@@ -2,10 +2,58 @@
 import yaml
 from yaml.loader import SafeLoader
 from playbook_classes.Playbook import Playbook
+import os
+
+counter = 0
+
+incrementCounterTask = {
+    "name" : "increment the reboot counter",
+    "lineinfile": {
+        "dest": "inventory",
+        "regexp:": "rebootCounter",
+        "line": "rebootCounter = {}".format(counter)
+    }
+}
+
+rebootTask = {
+    "name" : "reboot the local host",
+    "command" : "sudo reboot"
+}
+
+createSystemdUnitTask = {
+    "name": "create the systemd unit to start the second playbook after reboot",
+    "tags": "always",
+    "copy": {
+        "src": "files/filip.service",
+        "dest": "/etc/systemd/system"
+    }
+}
+
+enableSystemdUnitTask = {
+    "name": "enable the unit to execute at reboot",
+    "tags": "always",
+    "command": "sudo systemctl enable filip.service"
+}
+
+daemonReloadTask = {
+    "name": "reload the units",
+    "tags": "always",
+    "command": "sudo systemctl daemon-reload"
+}
+
+removeSystemdUnitTask = {
+    "name": "delete the systemd unit",
+    "tags": "always",
+    "file" : {
+        "state": "absent",
+        "path": "/etc/systemd/system/filip.service"
+    }
+}
 
 def rebootInPlaybookPreTasks():
     for header in Playbook.getHeaders():
         for preTask in header.getPreTasks():
+            print(type(preTask))
             if preTask.rebootCommand and VMHostInHosts(header.getHosts()):
                 x = 0
                 # TODO uprava playbooku pro reboot control host
@@ -85,8 +133,43 @@ def VMHostInHosts(hosts):
             return True
     return False
 
+def createSystemdUnit():
+    #TODO cesta (user)
+    try:
+        os.mkdir('files')
+    except FileExistsError:
+        pass
+
+    with open('files/{}.service'.format(os.getlogin()), 'w') as systemdUnit:
+        systemdUnit.write('''[Unit]
+Description=Run ansible playbook on boot
+After=default.target
+DefaultDependecies=no
+Before=shutdown.target
+
+[Service]
+Type=oneshot
+DISPLAY=:0
+User={}
+ExecStart=/bin/bash -c 'DISPLAY=:0 xterm -geometry 120x50+500 -hold -e sudo ansible-playbook -i /home/filip/work/self-sustaining-playbook/inventory.ini /home/filip/self-sustaining-playbook/playbooks/infra/full_nfv.yml'
+User={}
+
+[Install]
+WantedBy=default.target
+
+'''.format(os.getlogin(), os.getlogin()))
+
+
+def addSystemdTasks():
+    Playbook.getHeaders()[0].getPreTasks().append(createSystemdUnitTask)
+    Playbook.getHeaders()[0].getPreTasks().append(enableSystemdUnitTask)
+    Playbook.getHeaders()[0].getPreTasks().append(daemonReloadTask)
+
+
 with open('../playbooks/infra/full_nfv.yml') as file:
     data = yaml.load(file, Loader = SafeLoader)
     Playbook = Playbook('full_nfv.yml', data)
 
-rebootInPlaybookPreTasks()
+createSystemdUnit()
+addSystemdTasks()
+#rebootInPlaybookPreTasks()

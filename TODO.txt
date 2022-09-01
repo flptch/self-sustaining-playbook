@@ -18,6 +18,13 @@ zacit hledat rebooty:
 	notify v role task, kterej notifyne handler definovanej v roli
 	...
 	...
+skript bude muset:
+	- na zacatek playbooku do pretasku pridat vytvoreni, povoleni a reloadnuti systemd unity
+	- na konec playbooku do tasku pridat odstraneni systemd unit
+	- ten task kde probiha reboot, musi obalit do blocku
+		- prvni task v blocku zvysi globalni counter, kterej udava ktery reboot se provede
+		- druhy task v blocku bude command sudo reboot
+		- podminka when: pokud counter bude roven odpovidajicimu cislu rebootu
 
 potreba establishnout ktery playbooky kontrolovat
 	uzivatel si v tom projektu zvoli urcitej profil a podle nej se vygenerujou playbooky do urcitejch mist

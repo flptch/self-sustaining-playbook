@@ -1,0 +1,16 @@
+[Unit]
+Description=Run ansible playbook on boot
+After=default.target
+DefaultDependecies=no
+Before=shutdown.target
+
+[Service]
+Type=oneshot
+DISPLAY=:0
+User=filip
+ExecStart=/bin/bash -c 'DISPLAY=:0 xterm -geometry 120x50+500 -hold -e sudo ansible-playbook -i /home/filip/work/self-sustaining-playbook/inventory.ini /home/filip/self-sustaining-playbook/playbooks/infra/full_nfv.yml'
+User=filip
+
+[Install]
+WantedBy=default.target
+
