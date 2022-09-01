@@ -11,19 +11,7 @@ class Header():
             handlers (List): the list of handlers
             roles (List): the list of roles
         """
-        self.hosts = hosts
-        self.tasks = tasks
-        self.pre_tasks = pre_tasks
-        self.handlers = handlers
-        self.roles = roles
-
     def __str__(self):
-        # TODO ukazuje to objekty a na string xd
-        """The string representation of the Header object
-
-        Returns:
-            _type_: _description_
-        """
         return ("hosts: " + str(self.hosts) + "\n"
         + "tasks: " + str(self.tasks) + "\n"
         + "pre_tasks:" + str(self.pre_tasks) + "\n"

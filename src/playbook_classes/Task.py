@@ -11,6 +11,14 @@ class Task():
         self.name = body['name']
         self.rebootModule = self.initiateReboot()
         self.notifyHandler = self.usesHandler()
+        self.rebootCommand = self.commandReboot()
+
+    def commandReboot(self):
+        for i in self.body:
+            if i == "command":
+                if self.body['command'] == "sudo reboot":
+                    return True
+        return False
 
     def initiateReboot(self):
         """Finds out if the pretask initiates reboot via reboot module
