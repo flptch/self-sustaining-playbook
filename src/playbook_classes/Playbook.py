@@ -29,10 +29,10 @@ class Playbook():
                 tmpHeader.setHandlers(self.createHandlerObjects(headers[i]['handlers']))
             except:
                 tmpHeader.setHandlers([])
-            #try:
-            tmpHeader.setRoles(self.createRoleObjects(headers[i]['roles']))
-            #except:
-            #    tmpHeader.setRoles([])
+            try:
+                tmpHeader.setRoles(self.createRoleObjects(headers[i]['roles']))
+            except:
+                tmpHeader.setRoles([])
             
             self.headers.append(tmpHeader)
 
@@ -47,7 +47,7 @@ class Playbook():
     def createPreTaskObjects(self, preTasks):
         listOfPreTasks = []
         for i in range(len(preTasks)):
-            listOfPreTasks.append(PreTask(preTasks[i]['name'], preTasks[i]['meta'], preTasks[i]['when']))
+            listOfPreTasks.append(PreTask(i))
 
         return listOfPreTasks
 

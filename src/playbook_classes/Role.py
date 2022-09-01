@@ -14,7 +14,7 @@ class Role:
             roleMainFile = yaml.load(f, Loader=SafeLoader)
         try:
             for i in roleMainFile:
-                roleTasks.append(RoleTask(i['name']))
+                roleTasks.append(RoleTask(i))
         except:
             pass
 

@@ -1,10 +1,23 @@
 class PreTask():
-    def __init__(self, name, meta, condition):
-        self.name = name
-        self.meta = meta
-        self.condition = condition
+    def __init__(self, body):
+        self.body = body
+        self.name = body['name']
+        self.rebootModule = self.initiateReboot()
+        self.notifyHandler = self.usesHandler()
+
+    def initiateReboot(self):
+        for i in self.body:
+            if i == "reboot":
+                return True
+        return False
+    
+    def usesHandler(self):
+        for i in self.body:
+            if i == "notify":
+                self.notifiedHandler = self.body['notify']
+                return True
+        return False
+
 
     def __str__(self):
-        return("name: " + self.name + "\n"
-        + "meta: " + self.meta + "\n"
-        + "when: " + str(self.condition))
+        return("name: " + self.body + "\n")
