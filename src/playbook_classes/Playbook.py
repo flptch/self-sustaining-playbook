@@ -54,7 +54,7 @@ class Playbook():
     def createHandlerObjects(self, handlers):
         listOfHandlers = []
         for i in range(len(handlers)):
-            listOfHandlers.append(Handler(handlers[i]['name']))
+            listOfHandlers.append(Handler(i))
 
         return listOfHandlers
 

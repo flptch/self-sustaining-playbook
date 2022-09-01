@@ -1,10 +1,25 @@
-potreba establishnout ktery playbooky kontrolovat
-	uzivatel si v tom projektu zvoli urcitej profil a podle nej se vygenerujou playbooky do urcitejch mist
-	a ty je potreba zkontrolovat 
-	hlavni playbook kterej spousti ti ostatni je ve slozce playbooks
 zacit hledat rebooty:
+	potencialni reboot:
+		primo v playbook taks/pretasks:
+			- skrz reboot module
+			- skrz command "sudo reboot"
+			- notify handleru:
+				- definovanyho v playbooku
+				- definovanyho v nejakej roli
+		task v nejakej roli:
+			- reboot module
+			- skrz command "sudo reboot"
+			- notify handler kterej je definovanej v te roli
+			- notify handler kterej je definovanej v tasku te role
+			- notify handler kterej je definovanej v tom hlavnim playbooku
+
 	u kazdeho reboota potreba overit zda rebootne control node
 	notify v role task, kterej notifyne handler definovanej main playbooku
 	notify v role task, kterej notifyne handler definovanej v roli
 	...
 	...
+
+potreba establishnout ktery playbooky kontrolovat
+	uzivatel si v tom projektu zvoli urcitej profil a podle nej se vygenerujou playbooky do urcitejch mist
+	a ty je potreba zkontrolovat 
+	hlavni playbook kterej spousti ti ostatni je ve slozce playbook
