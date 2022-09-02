@@ -1,7 +1,12 @@
-class Header():
+import yaml
+from yamlable import *
+
+@yaml_info(yaml_tag_ns='')
+
+class Header(YamlAble):
     """The class, which represents the header in the playbook
     """
-    def __init__(self, hosts, tasks, pre_tasks, handlers, roles):
+    def __init__(self, hosts, tasks, pre_tasks, handlers, roles, environment, any_errors_fatal):
         """The constructor
 
         Args:
@@ -10,7 +15,27 @@ class Header():
             pre_tasks (List): the list of pretasks
             handlers (List): the list of handlers
             roles (List): the list of roles
+            environment(string): describes the environment
+            any_errors_fatal(bool): the value of the variable
         """
+        self.hosts = hosts
+        self.tasks = tasks
+        self.pre_tasks = pre_tasks
+        self.handlers = handlers
+        self.roles = roles
+        self.environment = environment
+        self.any_errors_fatal = any_errors_fatal
+    
+    def __to_yaml_dict__(self):
+        return {'hosts': self.hosts[0],
+                'tasks': self.tasks,
+                'pre_tasks': self.pre_tasks,
+                'handlers': self.handlers,
+                'roles': self.roles,
+                'environment': self.environment,
+                'any_errors_fatal': self.any_errors_fatal}
+
+
     def __str__(self):
         return ("hosts: " + str(self.hosts) + "\n"
         + "tasks: " + str(self.tasks) + "\n"
@@ -92,4 +117,20 @@ class Header():
         Args:
             newRoles (List): List of new roles
         """
-        self.roles = newRoles        
+        self.roles = newRoles 
+    
+    def setEnvironment(self, newEnvironment):
+        """Sets the environment in the header
+
+        Args:
+            newEnvironment (string): new environment
+        """
+        self.environment = newEnvironment
+
+    def setAnyErrorsFatal(self, newAnyErrorsFatal):
+        """Sets the any_errors_fatal variable in the header
+
+        Args:
+            newAnyErrorsFatal (bool): the value of the variable
+        """
+        self.any_errors_fatal = newAnyErrorsFatal

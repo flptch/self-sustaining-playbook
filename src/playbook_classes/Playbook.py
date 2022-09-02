@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-import yaml
 from yaml.loader import SafeLoader
 from playbook_classes.Handler import Handler
 from playbook_classes.Header import Header
@@ -7,20 +6,21 @@ from playbook_classes.Host import Host
 from playbook_classes.Role import Role
 from playbook_classes.Task import Task
 from playbook_classes.PreTask import PreTask
+import yaml
+from yamlable import *
 
-class Playbook():
+@yaml_info(yaml_tag_ns='')
+class Playbook(YamlAble):
     """The class, which represents the whole playbook
     """
-    headers = []
-    def __init__(self, name, headers):
+    def __init__(self, headers):
         """The constructor
 
         Args:
             name (string): the name of the playbook
             headers (YAML): YAML representation of the playbook
         """
-        self.name = name
-        self.createHeaderObjects(headers)
+        self.headers = self.createHeaderObjects(headers)
 
     def createHeaderObjects(self, headers):
         """Creates the header objects
@@ -28,8 +28,9 @@ class Playbook():
         Args:
             headers (YAML): YAML representation of the playbook
         """
+        tmpHeaders = []
         for i in range(len(headers)):
-            tmpHeader = Header(self.createHostObjects(headers[i]['hosts']), [], [], [], [])
+            tmpHeader = Header(self.createHostObjects(headers[i]['hosts']), [], [], [], [], [], [])
             try:
                 # TODO kinda sus
                 tmpHeader.setTasks(Task(headers[i]['tasks']))
@@ -47,8 +48,20 @@ class Playbook():
                 tmpHeader.setRoles(self.createRoleObjects(headers[i]['roles']))
             except:
                 tmpHeader.setRoles([])
-            
-            self.headers.append(tmpHeader)
+            try:
+                tmpHeader.setEnvironment(headers[i]['environment'])
+            except:
+                #TODO
+                tmpHeader.setEnvironment('')
+            try:
+                tmpHeader.setAnyErrorsFatal(headers[i]['any_errors_fatal'])
+            except:
+                #TODO
+                tmpHeader.setAnyErrorsFatal('')
+
+            tmpHeaders.append(tmpHeader)
+
+        return tmpHeaders
 
     def createHostObjects(self, hosts):
         """Creates the header hosts objects
@@ -60,9 +73,9 @@ class Playbook():
             List: the list of Hosts objects
         """
         listOfHosts = []
-        hosts = hosts.split(",")
-        for i in range(len(hosts)):
-            listOfHosts.append(Host(hosts[i]))
+        #hosts = hosts.split(",")
+        #for i in range(len(hosts)):
+        listOfHosts.append((hosts))
 
         return listOfHosts
 
@@ -107,7 +120,10 @@ class Playbook():
         """
         listOfRoles = []
         for i in range(len(roles)):
-            listOfRoles.append(Role(roles[i]['role']))
+            try:
+                listOfRoles.append(Role(roles[i]['role'], roles[i]['when']))
+            except:
+                listOfRoles.append(Role(roles[i]['role']))
 
         return listOfRoles
 
@@ -126,3 +142,4 @@ class Playbook():
             List: the list of playbook headers
         """
         return self.headers
+    

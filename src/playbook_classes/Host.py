@@ -1,4 +1,8 @@
-class Host:
+import yaml
+from yamlable import *
+
+@yaml_info(yaml_tag_ns='')
+class Host(YamlAble):
     """The class, which represents the host in the header
     """
     def __init__(self, name):
@@ -14,5 +18,13 @@ class Host:
 
         Returns:
             string: Returns the string representation of the Host object
+        """
+        return self.name
+
+    def __to_yaml_dict__(self):
+        """Method which controls what to dump
+
+        Returns:
+            YAML: dumped yaml
         """
         return self.name

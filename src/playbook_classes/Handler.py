@@ -1,4 +1,8 @@
-class Handler():
+import yaml
+from yamlable import *
+
+@yaml_info(yaml_tag_ns='')
+class Handler(YamlAble):
     """The class, which represents the handler defined in the playbook
     """
     def __init__(self, body):
@@ -21,6 +25,14 @@ class Handler():
             if i == "reboot":
                 return True
         return False
+
+    def __to_yaml_dict__(self):
+        """Method which controls what to dump
+
+        Returns:
+            YAML: dumped yaml
+        """
+        return self.body
 
     def __str__(self):
         """returns the string representation of the Handler object

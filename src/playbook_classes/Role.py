@@ -4,16 +4,20 @@ from yaml.loader import SafeLoader
 from role_classes.RoleTask import RoleTask
 from role_classes.RoleHandler import RoleHandler
 
-class Role:
+from yamlable import *
+
+@yaml_info(yaml_tag_ns='')
+class Role(YamlAble):
     """The class, which represents the Role
     """
-    def __init__(self, name):
+    def __init__(self, name, when=None):
         """The constructor
 
         Args:
             name (string): name of the role
         """
         self.name = name
+        self.when = when
         self.roleTasks = self.createRoleTaskObjects()
         self.roleHandlers = self.createRoleHandlerObjects()
 
@@ -64,6 +68,18 @@ class Role:
             List: the handlers
         """
         return self.roleHandlers
+
+    def __to_yaml_dict__(self):
+        """Method which controls what to dump
+
+        Returns:
+            YAML: dumped yaml
+        """
+        if self.when is None:
+            return {'role': self.name}
+        else:
+            return {'role': self.name,
+                    'when': self.when}
 
     def __str__(self):
         """The string representation of the Role objects

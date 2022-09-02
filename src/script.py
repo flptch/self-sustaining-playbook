@@ -2,6 +2,8 @@
 import yaml
 from yaml.loader import SafeLoader
 from playbook_classes.Playbook import Playbook
+from playbook_classes.PreTask import PreTask
+from playbook_classes.Task import Task
 import os
 
 counter = 0
@@ -165,11 +167,11 @@ WantedBy=default.target
 def addSystemdTasks():
     """Adds all necessary tasks, which take care of creating, enabling and removing the systemd unit
     """
-    Playbook.getHeaders()[0].getPreTasks().append(createSystemdUnitTask)
-    Playbook.getHeaders()[0].getPreTasks().append(enableSystemdUnitTask)
-    Playbook.getHeaders()[0].getPreTasks().append(daemonReloadTask)
-    Playbook.getHeaders()[len(Playbook.getHeaders()) - 1].getTasks().append(removeSystemdUnitTask)
-    Playbook.getHeaders()[len(Playbook.getHeaders()) - 1].getTasks().append(daemonReloadTask)
+    Playbook.getHeaders()[0].getPreTasks().append(PreTask(createSystemdUnitTask))
+    Playbook.getHeaders()[0].getPreTasks().append(PreTask(enableSystemdUnitTask))
+    Playbook.getHeaders()[0].getPreTasks().append(PreTask(daemonReloadTask))
+    Playbook.getHeaders()[len(Playbook.getHeaders()) - 1].getTasks().append(Task(removeSystemdUnitTask))
+    Playbook.getHeaders()[len(Playbook.getHeaders()) - 1].getTasks().append(Task(daemonReloadTask))
 
 def createCounterVariable():
     #TODO pripravit to na vice use cases
@@ -183,9 +185,15 @@ def createCounterVariable():
 
 with open('../playbooks/infra/full_nfv.yml') as file:
     data = yaml.load(file, Loader = SafeLoader)
-    Playbook = Playbook('full_nfv.yml', data)
+    Playbook = Playbook(data)
 
 createCounterVariable()
 createSystemdUnit()
 addSystemdTasks()
+
+with open('../created_playbook.yml', 'w') as createdFile:
+    documents = yaml.dump(Playbook.getHeaders(), createdFile)
+
+#print(yaml.dump(Playbook.getHeaders(), sort_keys=False))
+
 #rebootInPlaybookPreTasks()

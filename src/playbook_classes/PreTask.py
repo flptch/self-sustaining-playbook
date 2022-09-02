@@ -1,7 +1,13 @@
-class PreTask():
+import yaml
+from yamlable import *
+
+@yaml_info(yaml_tag_ns='')
+class PreTask(YamlAble):
+    yaml_tag = u'!pretask'
     """The class, which represents the pretask defined in the playbook
     """
     def __init__(self, body):
+        yaml.emitter.Emitter.prepare_tag = lambda self, tag: ''
         """The constructor
 
         Args:
@@ -14,6 +20,11 @@ class PreTask():
         self.rebootCommand = self.commandReboot()
 
     def commandReboot(self):
+        """Finds out if the pretask initiates reboot via command
+
+        Returns:
+            bool: True - if the pretask initiates the reboot via command, False - otherwise
+        """
         for i in self.body:
             if i == "command":
                 if self.body['command'] == "sudo reboot":
@@ -43,8 +54,13 @@ class PreTask():
                 return True
         return False
 
+    def __to_yaml_dict__(self):
+        """Method which controls what to dump
 
-    def __str__(self):
-        """returns the string representation of the PreTask object
+        Returns:
+            YAML: dumped yaml
         """
-        return(self.name)
+        return self.body
+
+    def __repr__(self):    
+        return f"{type(self).__name__} - {dict(a=self.name, b=self.body)}"
