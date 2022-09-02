@@ -134,6 +134,8 @@ def VMHostInHosts(hosts):
     return False
 
 def createSystemdUnit():
+    """Creates the systemd unit file, which takes care of executing the playbook on boot
+    """
     #TODO cesta (user)
     try:
         os.mkdir('files')
@@ -161,15 +163,29 @@ WantedBy=default.target
 
 
 def addSystemdTasks():
+    """Adds all necessary tasks, which take care of creating, enabling and removing the systemd unit
+    """
     Playbook.getHeaders()[0].getPreTasks().append(createSystemdUnitTask)
     Playbook.getHeaders()[0].getPreTasks().append(enableSystemdUnitTask)
     Playbook.getHeaders()[0].getPreTasks().append(daemonReloadTask)
+    Playbook.getHeaders()[len(Playbook.getHeaders()) - 1].getTasks().append(removeSystemdUnitTask)
+    Playbook.getHeaders()[len(Playbook.getHeaders()) - 1].getTasks().append(daemonReloadTask)
+
+def createCounterVariable():
+    #TODO pripravit to na vice use cases
+    """Creates the global variable Counter used by reboots conditions,
+    """
+    with open('../inventory.ini', 'r+') as inventoryFile:
+        lastLine = inventoryFile.readlines()[-1]
+        if not lastLine == "rebootCounter=0" + "\n":
+            inventoryFile.write("rebootCounter=0" + "\n")
 
 
 with open('../playbooks/infra/full_nfv.yml') as file:
     data = yaml.load(file, Loader = SafeLoader)
     Playbook = Playbook('full_nfv.yml', data)
 
+createCounterVariable()
 createSystemdUnit()
 addSystemdTasks()
 #rebootInPlaybookPreTasks()
