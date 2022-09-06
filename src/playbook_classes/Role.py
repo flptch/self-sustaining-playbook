@@ -1,8 +1,8 @@
 import yaml
 from yaml.loader import SafeLoader
-
 from role_classes.RoleTask import RoleTask
 from role_classes.RoleHandler import RoleHandler
+import lib
 
 from yamlable import *
 
@@ -48,7 +48,7 @@ class Role(YamlAble):
             roleMainFile = yaml.load(f, Loader=SafeLoader)
         try:
             for i in roleMainFile:
-                roleTasks.append(RoleTask(i))
+                roleTasks.append(RoleTask(i))            
         except:
             pass
 
@@ -68,6 +68,12 @@ class Role(YamlAble):
             List: the handlers
         """
         return self.roleHandlers
+
+    def wrapRoleTaskToBlock(self, name,counterOfReboots):
+        for i in self.roleTasks:
+            if i.name == name:
+                i.body = {'block': [lib.incrementCounterTask, lib.rebootTask],
+                          'when': 'rebootCounter == {}'.format(counterOfReboots)}
 
     def __to_yaml_dict__(self):
         """Method which controls what to dump

@@ -11,6 +11,7 @@ from yamlable import *
 
 @yaml_info(yaml_tag_ns='')
 class Playbook(YamlAble):
+    counterOfReboots = 0
     """The class, which represents the whole playbook
     """
     def __init__(self, headers):

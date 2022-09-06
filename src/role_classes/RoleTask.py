@@ -1,4 +1,8 @@
-class RoleTask():
+import yaml
+from yamlable import *
+
+@yaml_info(yaml_tag_ns='')
+class RoleTask(YamlAble):
     """The class, which represents the task defined in the role
     """
     def __init__(self, body):
@@ -12,6 +16,14 @@ class RoleTask():
         self.rebootModule = self.initiateReboot()
         self.notifyHandler = self.usesHandler()
         self.rebootCommand = self.commandReboot()
+
+    def __to_yaml_dict__(self):
+        """Method which controls what to dump
+
+        Returns:
+            YAML: dumped yaml
+        """
+        return self.body
 
     def commandReboot(self):
         for i in self.body:
@@ -45,7 +57,7 @@ class RoleTask():
 
     def __str__(self):
         """The string representation of the RoleTask object
-
+    
         Returns:
             string: the string representation of the RoleTask object
         """

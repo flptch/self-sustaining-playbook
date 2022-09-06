@@ -5,52 +5,7 @@ from playbook_classes.Playbook import Playbook
 from playbook_classes.PreTask import PreTask
 from playbook_classes.Task import Task
 import os
-
-counter = 0
-
-incrementCounterTask = {
-    "name" : "increment the reboot counter",
-    "lineinfile": {
-        "dest": "inventory",
-        "regexp:": "rebootCounter",
-        "line": "rebootCounter = {}".format(counter)
-    }
-}
-
-rebootTask = {
-    "name" : "reboot the local host",
-    "command" : "sudo reboot"
-}
-
-createSystemdUnitTask = {
-    "name": "create the systemd unit to start the second playbook after reboot",
-    "tags": "always",
-    "copy": {
-        "src": "files/filip.service",
-        "dest": "/etc/systemd/system"
-    }
-}
-
-enableSystemdUnitTask = {
-    "name": "enable the unit to execute at reboot",
-    "tags": "always",
-    "command": "sudo systemctl enable filip.service"
-}
-
-daemonReloadTask = {
-    "name": "reload the units",
-    "tags": "always",
-    "command": "sudo systemctl daemon-reload"
-}
-
-removeSystemdUnitTask = {
-    "name": "delete the systemd unit",
-    "tags": "always",
-    "file" : {
-        "state": "absent",
-        "path": "/etc/systemd/system/filip.service"
-    }
-}
+import lib
 
 def rebootInPlaybookPreTasks():
     for header in Playbook.getHeaders():
@@ -167,11 +122,11 @@ WantedBy=default.target
 def addSystemdTasks():
     """Adds all necessary tasks, which take care of creating, enabling and removing the systemd unit
     """
-    Playbook.getHeaders()[0].getPreTasks().append(PreTask(createSystemdUnitTask))
-    Playbook.getHeaders()[0].getPreTasks().append(PreTask(enableSystemdUnitTask))
-    Playbook.getHeaders()[0].getPreTasks().append(PreTask(daemonReloadTask))
-    Playbook.getHeaders()[len(Playbook.getHeaders()) - 1].getTasks().append(Task(removeSystemdUnitTask))
-    Playbook.getHeaders()[len(Playbook.getHeaders()) - 1].getTasks().append(Task(daemonReloadTask))
+    Playbook.getHeaders()[0].getPreTasks().append(PreTask(lib.createSystemdUnitTask))
+    Playbook.getHeaders()[0].getPreTasks().append(PreTask(lib.enableSystemdUnitTask))
+    Playbook.getHeaders()[0].getPreTasks().append(PreTask(lib.daemonReloadTask))
+    Playbook.getHeaders()[len(Playbook.getHeaders()) - 1].getTasks().append(Task(lib.removeSystemdUnitTask))
+    Playbook.getHeaders()[len(Playbook.getHeaders()) - 1].getTasks().append(Task(lib.daemonReloadTask))
 
 def createCounterVariable():
     #TODO pripravit to na vice use cases
@@ -194,6 +149,7 @@ addSystemdTasks()
 with open('../created_playbook.yml', 'w') as createdFile:
     documents = yaml.dump(Playbook.getHeaders(), createdFile)
 
-#print(yaml.dump(Playbook.getHeaders(), sort_keys=False))
+Playbook.getHeaders()[0].getRoles()[0].wrapRoleTaskToBlock('Set defaults', lib.counterOfReboots)
+print(yaml.dump(Playbook.getHeaders()[0].getRoles()[0].getRoleTasks(), sort_keys=False))
 
 #rebootInPlaybookPreTasks()
