@@ -76,7 +76,9 @@ class Playbook(YamlAble):
         listOfHosts = []
         #hosts = hosts.split(",")
         #for i in range(len(hosts)):
-        listOfHosts.append((hosts))
+        hosts = hosts.split(',')
+        for host in hosts:
+            listOfHosts.append((host))
 
         return listOfHosts
 
