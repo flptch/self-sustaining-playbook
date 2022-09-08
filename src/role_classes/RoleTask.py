@@ -12,7 +12,8 @@ class RoleTask(YamlAble):
             body (YAML): the YAML representation of the task
         """
         self.body = body
-        self.name = self.body['name']
+        if not 'block' in body:
+            self.name = self.body['name']        
         self.rebootModule = self.initiateReboot()
         self.notifyHandler = self.usesHandler()
         self.rebootCommand = self.commandReboot()

@@ -19,12 +19,18 @@ zacit hledat rebooty:
 	...
 	...
 skript bude muset:
-	- na zacatek playbooku do pretasku pridat vytvoreni, povoleni a reloadnuti systemd unity
-	- na konec playbooku do tasku pridat odstraneni systemd unit
+	- vytvorit soubor se systemd unit - DONE
+	- na zacatek playbooku do pretasku pridat vytvoreni, povoleni a reloadnuti systemd unity - DONE
+	- na konec playbooku do tasku pridat odstraneni systemd unit - DONE
+	- udelat globalni counter na ty rebooty - DONE
 	- ten task kde probiha reboot, musi obalit do blocku
-		- prvni task v blocku zvysi globalni counter, kterej udava ktery reboot se provede
-		- druhy task v blocku bude command sudo reboot
-		- podminka when: pokud counter bude roven odpovidajicimu cislu rebootu
+		- prvni task v blocku zvysi globalni counter, kterej udava ktery reboot se provede - DONE
+		- druhy task v blocku bude command sudo reboot - DONE
+		- podminka when: pokud counter bude roven odpovidajicimu cislu rebootu - DONE
+
+
+zjistit jak zvysit hodnotu toho counteru, to pujde - DONE
+
 
 potreba establishnout ktery playbooky kontrolovat
 	uzivatel si v tom projektu zvoli urcitej profil a podle nej se vygenerujou playbooky do urcitejch mist

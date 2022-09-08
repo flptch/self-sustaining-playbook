@@ -44,12 +44,11 @@ def rebootInRole():
                         # TODO uprava playbooku pro reboot control host
                         roleTask.body.pop('notify')
                         try:
-                            role.addBlock(counterOfRoleTasks + 1, lib.counterOfReboots, roleTask.body['when'])
-                        except:
-                            pass
+                            role.addBlock(counterOfRoleTasks + 1, roleTask.body['when'])
+                        except KeyError:
+                            role.addBlock(counterOfRoleTasks + 1)
                         print(yaml.dump(role.getRoleTasks(), sort_keys=False))
                         lib.counterOfReboots += 1
-                        break # TODO
                 counterOfRoleTasks += 1
 
 def findTheHandler(notifiedHandlers, listOfRoles=None, role=None):

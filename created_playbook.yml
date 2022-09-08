@@ -1,27 +1,26 @@
-- any_errors_fatal: true
-  environment: '{{ proxy_env | d({}) }}'
+- hosts: k8s_cluster
+  tasks: []
+  pre_tasks:
+  - name: End play for VM host
+    meta: end_host
+    when:
+    - '''vm_host'' in group_names'
+    - on_vms | default(false) | bool
+  - name: create the systemd unit to start the second playbook after reboot
+    tags: always
+    copy:
+      src: files/filip.service
+      dest: /etc/systemd/system
+  - name: enable the unit to execute at reboot
+    tags: always
+    command: sudo systemctl enable filip.service
+  - name: reload the units
+    tags: always
+    command: sudo systemctl daemon-reload
   handlers:
   - name: reboot server
     reboot:
       reboot_timeout: 1200
-  hosts: k8s_cluster,vm_host
-  pre_tasks:
-  - meta: end_host
-    name: End play for VM host
-    when:
-    - '''vm_host'' in group_names'
-    - on_vms | default(false) | bool
-  - copy:
-      dest: /etc/systemd/system
-      src: files/filip.service
-    name: create the systemd unit to start the second playbook after reboot
-    tags: always
-  - command: sudo systemctl enable filip.service
-    name: enable the unit to execute at reboot
-    tags: always
-  - command: sudo systemctl daemon-reload
-    name: reload the units
-    tags: always
   roles:
   - role: cluster_defaults
   - role: bootstrap/configure_proxy
@@ -37,20 +36,20 @@
       | bool
     - not vm_enabled or on_vms | default(false) | bool
   - role: bootstrap/golang_install
-  tasks: []
-- any_errors_fatal: true
   environment: '{{ proxy_env | d({}) }}'
+  any_errors_fatal: true
+- hosts: kube_node
+  tasks: []
+  pre_tasks:
+  - name: End play for VM host
+    meta: end_host
+    when:
+    - '''vm_host'' in group_names'
+    - on_vms | default(false) | bool
   handlers:
   - name: reboot server
     reboot:
       reboot_timeout: 1200
-  hosts: kube_node,vm_host
-  pre_tasks:
-  - meta: end_host
-    name: End play for VM host
-    when:
-    - '''vm_host'' in group_names'
-    - on_vms | default(false) | bool
   roles:
   - role: cluster_defaults
   - role: bootstrap/configure_hugepages
@@ -86,20 +85,20 @@
     - configure_gpu | default(false) | bool
     - not vm_enabled or on_vms | default(false) | bool
   - role: bootstrap/update_grub
-  tasks: []
-- any_errors_fatal: true
   environment: '{{ proxy_env | d({}) }}'
+  any_errors_fatal: true
+- hosts: kube_node
+  tasks: []
+  pre_tasks:
+  - name: End play for VM host
+    meta: end_host
+    when:
+    - '''vm_host'' in group_names'
+    - on_vms | default(false) | bool
   handlers:
   - name: reboot server
     reboot:
       reboot_timeout: 1200
-  hosts: kube_node,vm_host
-  pre_tasks:
-  - meta: end_host
-    name: End play for VM host
-    when:
-    - '''vm_host'' in group_names'
-    - on_vms | default(false) | bool
   roles:
   - role: cluster_defaults
   - role: bootstrap/apply_intel_pstate
@@ -108,17 +107,17 @@
     when:
     - update_qat_drivers | default(false) | bool
     - qat_devices | default([]) | length > 0
-  tasks: []
-- any_errors_fatal: true
   environment: '{{ proxy_env | d({}) }}'
-  handlers: []
-  hosts: kube_node,vm_host
+  any_errors_fatal: true
+- hosts: kube_node
+  tasks: []
   pre_tasks:
-  - meta: end_host
-    name: End play for VM host
+  - name: End play for VM host
+    meta: end_host
     when:
     - '''vm_host'' in group_names'
     - on_vms | default(false) | bool
+  handlers: []
   roles:
   - role: cluster_defaults
   - role: bootstrap/determine_dataplane_interfaces
@@ -131,17 +130,25 @@
     - dataplane_interfaces | default([]) | length > 0
     - update_nic_firmware | default(false) | bool
     - update_nic_drivers | default(false) | bool
-  tasks: []
-- any_errors_fatal: true
   environment: '{{ proxy_env | d({}) }}'
-  handlers: []
-  hosts: kube_node,vm_host
+  any_errors_fatal: true
+- hosts: kube_node
+  tasks:
+  - name: delete the systemd unit
+    tags: always
+    file:
+      state: absent
+      path: /etc/systemd/system/filip.service
+  - name: reload the units
+    tags: always
+    command: sudo systemctl daemon-reload
   pre_tasks:
-  - meta: end_host
-    name: End play for VM host
+  - name: End play for VM host
+    meta: end_host
     when:
     - '''vm_host'' in group_names'
     - on_vms | default(false) | bool
+  handlers: []
   roles:
   - role: cluster_defaults
   - role: install_dpdk
@@ -171,12 +178,5 @@
   - role: bootstrap/configure_sgx
     when:
     - configure_sgx | default(false) | bool
-  tasks:
-  - file:
-      path: /etc/systemd/system/filip.service
-      state: absent
-    name: delete the systemd unit
-    tags: always
-  - command: sudo systemctl daemon-reload
-    name: reload the units
-    tags: always
+  environment: '{{ proxy_env | d({}) }}'
+  any_errors_fatal: true

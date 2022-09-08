@@ -3,6 +3,7 @@ from yaml.loader import SafeLoader
 from role_classes.RoleTask import RoleTask
 from role_classes.RoleHandler import RoleHandler
 import lib
+from copy import deepcopy
 
 from yamlable import *
 
@@ -75,12 +76,14 @@ class Role(YamlAble):
                 i.body = {'block': [lib.incrementCounterTask, lib.rebootTask],
                           'when': 'rebootCounter == {}'.format(counterOfReboots)}
 
-    def addBlock(self, index, counterOfReboots, condition=None):
+    def addBlock(self, index, condition=None):
+        tmpRebootTask = deepcopy(lib.rebootTask)
         if not condition == None:
-            self.roleTasks.insert(index, {'block': [self.returnIncrementCounterTask(lib.counterOfReboots), lib.rebootTask],
-                                          'when': condition + ' ' + 'and' + ' ' + 'rebootCounter == {}'.format(lib.counterOfReboots)})
+            self.roleTasks.insert(index, RoleTask({'block': [self.returnIncrementCounterTask(lib.counterOfReboots + 1), tmpRebootTask],
+                                          'when': condition + ' ' + 'and' + ' ' + 'rebootCounter == {}'.format(lib.counterOfReboots)}))
         else:
-            self.roleTasks.insert(index, {'block': [self.returnIncrementCounterTask(lib.counterOfReboots), lib.rebootTask]})
+            self.roleTasks.insert(index, RoleTask({'block': [self.returnIncrementCounterTask(lib.counterOfReboots + 1), tmpRebootTask],
+                                                   'when': 'rebootCounter == {}'.format(lib.counterOfReboots)}))
 
     def returnIncrementCounterTask(self, counterOfReboots):
         return {
