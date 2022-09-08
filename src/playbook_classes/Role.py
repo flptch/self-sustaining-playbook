@@ -75,6 +75,23 @@ class Role(YamlAble):
                 i.body = {'block': [lib.incrementCounterTask, lib.rebootTask],
                           'when': 'rebootCounter == {}'.format(counterOfReboots)}
 
+    def addBlock(self, index, counterOfReboots, condition=None):
+        if not condition == None:
+            self.roleTasks.insert(index, {'block': [self.returnIncrementCounterTask(lib.counterOfReboots), lib.rebootTask],
+                                          'when': condition + ' ' + 'and' + ' ' + 'rebootCounter == {}'.format(lib.counterOfReboots)})
+        else:
+            self.roleTasks.insert(index, {'block': [self.returnIncrementCounterTask(lib.counterOfReboots), lib.rebootTask]})
+
+    def returnIncrementCounterTask(self, counterOfReboots):
+        return {
+                "name" : "increment the reboot counter",
+                "lineinfile": {
+                    "dest": "inventory",
+                    "regexp:": "rebootCounter",
+                    "line": "rebootCounter = {}".format(counterOfReboots)
+    }
+}
+
     def __to_yaml_dict__(self):
         """Method which controls what to dump
 

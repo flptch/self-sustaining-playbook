@@ -5,7 +5,7 @@ incrementCounterTask = {
     "lineinfile": {
         "dest": "inventory",
         "regexp:": "rebootCounter",
-        "line": "rebootCounter = {}".format(counterOfReboots + 1)
+        "line": "rebootCounter = {}".format(counterOfReboots)
     }
 }
 

@@ -27,6 +27,7 @@ def rebootInRole():
     """
     for header in Playbook.getHeaders():
         for role in header.getRoles():
+            counterOfRoleTasks = 0
             for roleTask in role.getRoleTasks():
                 # role task reboots the control host via command
                 if roleTask.rebootCommand and VMHostInHosts(header.getHosts()):
@@ -41,7 +42,15 @@ def rebootInRole():
                     # role task notifies handler, which reboots the control host via reboot module
                     if handler.rebootModule and VMHostInHosts(header.getHosts()):
                         # TODO uprava playbooku pro reboot control host
+                        roleTask.body.pop('notify')
+                        try:
+                            role.addBlock(counterOfRoleTasks + 1, lib.counterOfReboots, roleTask.body['when'])
+                        except:
+                            pass
+                        print(yaml.dump(role.getRoleTasks(), sort_keys=False))
                         lib.counterOfReboots += 1
+                        break # TODO
+                counterOfRoleTasks += 1
 
 def findTheHandler(notifiedHandlers, listOfRoles=None, role=None):
     """Finds the handler by name and returns it
