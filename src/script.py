@@ -41,13 +41,11 @@ def rebootInRole():
                     handler = findTheHandler(roleTask.notifiedHandler, role=role)
                     # role task notifies handler, which reboots the control host via reboot module
                     if handler.rebootModule and VMHostInHosts(header.getHosts()):
-                        # TODO uprava playbooku pro reboot control host
                         roleTask.body.pop('notify')
                         try:
                             role.addBlock(counterOfRoleTasks + 1, roleTask.body['when'])
                         except KeyError:
                             role.addBlock(counterOfRoleTasks + 1)
-                        print(yaml.dump(role.getRoleTasks(), sort_keys=False))
                         lib.counterOfReboots += 1
                 counterOfRoleTasks += 1
 
