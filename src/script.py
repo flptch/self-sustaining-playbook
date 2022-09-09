@@ -5,40 +5,53 @@ from playbook_classes.Playbook import Playbook
 from playbook_classes.PreTask import PreTask
 from playbook_classes.Task import Task
 import os
-import lib
-
-def checkForReboot(header, task, counterOfPreTasks):
-    if (task.rebootModule or task.rebootCommand) and VMHostInHosts(header.getHosts()):
-        header.getPreTasks().pop(counterOfPreTasks)
-        try:
-            header.addBlock(counterOfPreTasks, task.body['when'])
-        except KeyError:
-            header.addBlock(counterOfPreTasks)
-        lib.counterOfReboots += 1
-        # TODO vyzkouset
-    elif task.notifyHandler:
-        handler = findTheHandler(task.notifiedHandler, listOfRoles=header.getRoles())
-        if handler.rebootModule and VMHostInHosts(header.getHosts()):
-            task.body.pop('notify')
-            try:
-                header.addBlock(counterOfPreTasks + 1, task.body['when'])
-            except KeyError:
-                header.addBlock(counterOfPreTasks + 1)
-            lib.counterOfReboots += 1
-            # TODO vyzkouset
+import lib    
             
 def rebootInPlaybookPreTasks():
     for header in Playbook.getHeaders():
         counterOfPreTasks = 0
         for preTask in header.getPreTasks():
-            checkForReboot(header, preTask, counterOfPreTasks)
-            counterOfPreTasks += 1
+            if (preTask.rebootModule or preTask.rebootCommand) and VMHostInHosts(header.getHosts()):
+                header.getPreTasks().pop(counterOfPreTasks)
+                try:
+                    header.addBlockToPreTasks(counterOfPreTasks, preTask.body['when'])
+                except KeyError:
+                    header.addBlockToPreTasks(counterOfPreTasks)
+                lib.counterOfReboots += 1
+            # TODO vyzkouset
+            elif preTask.notifyHandler:
+                handler = findTheHandler(preTask.notifiedHandler, listOfRoles=header.getRoles())
+                if handler.rebootModule and VMHostInHosts(header.getHosts()):
+                    preTask.body.pop('notify')
+                    try:
+                        header.addBlockToPreTasks(counterOfPreTasks + 1, preTask.body['when'])
+                    except KeyError:
+                        header.addBlockToPreTasks(counterOfPreTasks + 1)
+                lib.counterOfReboots += 1
+            # TODO vyzkouset
+        counterOfPreTasks += 1
 
 def rebootInPlaybookTasks():
     for header in Playbook.getHeaders():
         counterOfTasks = 0
         for task in header.getTasks():
-            checkForReboot(header, task, counterOfTasks)
+            if(task.rebootModule or task.rebootCommand) and VMHostInHosts(header.getHosts()):
+                header.getTasks().pop(counterOfTasks)
+                try:
+                    header.addBlockToTasks(counterOfTasks, task.body['when'])
+                except KeyError:
+                    header.addBlockToTasks(counterOfTasks)
+                lib.counterOfReboots += 1
+            elif task.notifyHandler:
+                handler = findTheHandler(task.notifiedHandler, listOfRoles=header.getRoles())
+                if handler.rebootModule and VMHostInHosts(header.getHosts()):
+                    task.body.pop('notify')
+                    try:
+                        header.addBlockToTasks(counterOfTasks + 1, task.body['when'])
+                    except KeyError:
+                        header.addBlockToTasks(counterOfTasks + 1)
+                lib.counterOfReboots += 1
+                # TODO vyzkouset
             counterOfTasks += 1
 
 def rebootInRole():
@@ -164,7 +177,7 @@ def createCounterVariable():
             inventoryFile.write("rebootCounter=0" + "\n")
 
 
-with open('../playbooks/infra/full_nfv.yml') as file:
+with open('../playbooks/reboot_module_based_reboot.yml') as file:
     data = yaml.load(file, Loader = SafeLoader)
     Playbook = Playbook(data)
 
@@ -180,5 +193,5 @@ with open('../created_playbook.yml', 'w') as createdFile:
     documents = yaml.dump(Playbook.getHeaders(), createdFile, sort_keys=False)
 
 
-
+#print(yaml.dump(Playbook.getHeaders()[0], sort_keys=False))
 print(lib.counterOfReboots)

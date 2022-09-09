@@ -11,7 +11,7 @@ from yamlable import *
 class Role(YamlAble):
     """The class, which represents the Role
     """
-    def __init__(self, name, when=None):
+    def __init__(self, name, when=None, tags=None):
         """The constructor
 
         Args:
@@ -19,6 +19,7 @@ class Role(YamlAble):
         """
         self.name = name
         self.when = when
+        self.tags = tags
         self.roleTasks = self.createRoleTaskObjects()
         self.roleHandlers = self.createRoleHandlerObjects()
 
@@ -117,10 +118,17 @@ class Role(YamlAble):
         Returns:
             YAML: dumped yaml
         """
-        if self.when is None:
+        if self.when is None and self.tags is None:
             return {'role': self.name}
+        elif self.tags is None:
+            return {'role': self.name,
+                    'when': self.when}
+        elif self.when is None:
+            return {'role': self.name,
+                    'tags': self.tags}
         else:
             return {'role': self.name,
+                    'tags': self.tags,
                     'when': self.when}
 
     def __str__(self):

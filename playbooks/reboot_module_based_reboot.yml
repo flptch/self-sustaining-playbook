@@ -1,0 +1,37 @@
+---
+
+- hosts: vm_host
+  become: true
+  become_user: root
+  tasks:
+    - name: check the uptime
+      tags: always
+      command: "uptime"
+
+- hosts: vm_host
+  become: true
+  become_user: root
+  tasks:
+    - name: check the date
+      tags: always
+      command: "date"
+
+- hosts: vm_host
+  become: true
+  become_user: root
+  tasks:
+    - name: reboot the vm host
+      reboot:
+
+    - name: check the uptime before reboot
+      tags: always
+      command: "uptime"
+
+    - name: reboot the control host
+      tags: always
+      reboot:
+
+    - name: check the control host uptime after reboot
+      tags: always
+      register: uptimeoutput
+      command: "uptime"

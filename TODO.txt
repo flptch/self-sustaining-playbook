@@ -28,6 +28,9 @@ skript bude muset:
 		- druhy task v blocku bude command sudo reboot - DONE
 		- podminka when: pokud counter bude roven odpovidajicimu cislu rebootu - DONE
 
+	- odstranit notify cast - DONE
+	- pridat ten novy block s rebootem a zvysenim counteru za ten urcitej task v roli
+
 
 zjistit jak zvysit hodnotu toho counteru, to pujde - DONE
 

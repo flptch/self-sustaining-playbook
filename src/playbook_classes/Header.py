@@ -3,13 +3,14 @@ from yamlable import *
 from copy import deepcopy
 import lib
 from playbook_classes.PreTask import PreTask
+from playbook_classes.Task import Task
 
 @yaml_info(yaml_tag_ns='')
 
 class Header(YamlAble):
     """The class, which represents the header in the playbook
     """
-    def __init__(self, hosts, tasks, pre_tasks, handlers, roles, environment, any_errors_fatal):
+    def __init__(self, hosts):
         """The constructor
 
         Args:
@@ -22,24 +23,21 @@ class Header(YamlAble):
             any_errors_fatal(bool): the value of the variable
         """
         self.hosts = hosts
-        self.tasks = tasks
-        self.pre_tasks = pre_tasks
-        self.handlers = handlers
-        self.roles = roles
-        self.environment = environment
-        self.any_errors_fatal = any_errors_fatal
+      
     
     def __to_yaml_dict__(self):
-        return {'hosts': self.hosts[0],
+        return {'hosts': ','.join(self.hosts),
+                **({'become': self.become} if not self.become == "" else {}),
+                **({'become_user': self.becomeUser} if not self.becomeUser == "" else {}),
                 'tasks': self.tasks,
                 'pre_tasks': self.pre_tasks,
-                'handlers': self.handlers,
-                'roles': self.roles,
-                'environment': self.environment,
-                'any_errors_fatal': self.any_errors_fatal}
+                **({'handlers': self.handlers} if not self.handlers == [] else {}),
+                **({'roles': self.roles} if not self.roles == [] else {}),
+                **({'environment': self.environment} if not self.environment == "" else {}),
+                **({'any_errors_fatal': self.any_errors_fatal} if not self.any_errors_fatal == "" else {})}
 
-    def addBlock(self, index, condition=None):
-        """Insert the block of tasks at, which increment the global counter and initiate the reboot, a certain place
+    def addBlockToPreTasks(self, index, condition):
+        """Insert the block of tasks into the pretask section, which increment the global counter and initiate the reboot, a certain place
 
         Args:
             index (int): The position of block in roleTasks list
@@ -48,10 +46,26 @@ class Header(YamlAble):
         # deepcopy creation because of YAML bs
         tmpRebootTask = deepcopy(lib.rebootTask)
         if not condition == None:
-            self.roleTasks.insert(index, PreTask({'block': [self.returnIncrementCounterTask(lib.counterOfReboots + 1), tmpRebootTask],
+            self.pre_tasks.insert(index, PreTask({'block': [self.returnIncrementCounterTask(lib.counterOfReboots + 1), tmpRebootTask],
                                           'when': condition + ' ' + 'and' + ' ' + 'rebootCounter == {}'.format(lib.counterOfReboots)}))
         else:
-            self.roleTasks.insert(index, PreTask({'block': [self.returnIncrementCounterTask(lib.counterOfReboots + 1), tmpRebootTask],
+            self.pre_tasks.insert(index, PreTask({'block': [self.returnIncrementCounterTask(lib.counterOfReboots + 1), tmpRebootTask],
+                                                   'when': 'rebootCounter == {}'.format(lib.counterOfReboots)}))
+
+    def addBlockToTasks(self, index, condition=None):
+        """Insert the block of tasks into tasks section, which increment the global counter and initiate the reboot, a certain place
+
+        Args:
+            index (int): The position of block in roleTasks list
+            condition (string, optional): When condition. Defaults to None.
+        """
+        # deepcopy creation because of YAML bs
+        tmpRebootTask = deepcopy(lib.rebootTask)
+        if not condition == None:
+            self.tasks.insert(index, Task({'block': [self.returnIncrementCounterTask(lib.counterOfReboots + 1), tmpRebootTask],
+                                          'when': condition + ' ' + 'and' + ' ' + 'rebootCounter == {}'.format(lib.counterOfReboots)}))
+        else:
+            self.tasks.insert(index, Task({'block': [self.returnIncrementCounterTask(lib.counterOfReboots + 1), tmpRebootTask],
                                                    'when': 'rebootCounter == {}'.format(lib.counterOfReboots)}))
 
     def returnIncrementCounterTask(self, counterOfReboots):
@@ -170,3 +184,19 @@ class Header(YamlAble):
             newAnyErrorsFatal (bool): the value of the variable
         """
         self.any_errors_fatal = newAnyErrorsFatal
+
+    def setBecome(self, value):
+        """Sets the become variable in the header
+
+        Args:
+            value (bool): the bool value of the variable
+        """
+        self.become = value
+
+    def setBecomeUser(self, user):
+        """Sets the user
+
+        Args:
+            user (string): the user
+        """
+        self.becomeUser = user

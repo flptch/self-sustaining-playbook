@@ -12,7 +12,8 @@ class Task(YamlAble):
             body (YAML): the YAML representation of the body of the pretask
         """
         self.body = body
-        self.name = body['name']
+        if not 'block' in body:
+            self.name = self.body['name']  
         self.rebootModule = self.initiateReboot()
         self.notifyHandler = self.usesHandler()
         self.rebootCommand = self.commandReboot()

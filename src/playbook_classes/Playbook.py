@@ -31,11 +31,10 @@ class Playbook(YamlAble):
         """
         tmpHeaders = []
         for i in range(len(headers)):
-            tmpHeader = Header(self.createHostObjects(headers[i]['hosts']), [], [], [], [], [], [])
+            tmpHeader = Header(self.createHostObjects(headers[i]['hosts']))
             try:
-                # TODO kinda sus
-                tmpHeader.setTasks(Task(headers[i]['tasks']))
-            except:
+                tmpHeader.setTasks(self.createTaskObjects(headers[i]['tasks']))
+            except KeyError:
                 tmpHeader.setTasks([])
             try:
                 tmpHeader.setPreTasks(self.createPreTaskObjects(headers[i]['pre_tasks']))
@@ -52,13 +51,19 @@ class Playbook(YamlAble):
             try:
                 tmpHeader.setEnvironment(headers[i]['environment'])
             except:
-                #TODO
                 tmpHeader.setEnvironment('')
             try:
                 tmpHeader.setAnyErrorsFatal(headers[i]['any_errors_fatal'])
             except:
-                #TODO
                 tmpHeader.setAnyErrorsFatal('')
+            try:
+                tmpHeader.setBecome(headers[i]['become'])
+            except:
+                tmpHeader.setBecome('')
+            try:
+                tmpHeader.setBecomeUser(headers[i]['become_user'])
+            except:
+                tmpHeader.setBecomeUser('')
 
             tmpHeaders.append(tmpHeader)
 
@@ -81,6 +86,13 @@ class Playbook(YamlAble):
             listOfHosts.append((host))
 
         return listOfHosts
+
+    def createTaskObjects(self, tasks):
+        listOfTasks = []
+        for i in range(len(tasks)):
+            listOfTasks.append(Task(tasks[i]))
+
+        return listOfTasks
 
     def createPreTaskObjects(self, preTasks):
         """Creates the pretasks objects
@@ -123,11 +135,15 @@ class Playbook(YamlAble):
         """
         listOfRoles = []
         for i in range(len(roles)):
-            try:
-                listOfRoles.append(Role(roles[i]['role'], roles[i]['when']))
-            except:
+            if not 'when' in roles[i].keys() and not 'tags' in roles[i].keys():
                 listOfRoles.append(Role(roles[i]['role']))
-
+            elif not 'when' in roles[i].keys():
+                listOfRoles.append(Role(roles[i]['role'], tags=roles[i]['tags']))
+            elif not 'tags' in roles[i].keys():
+                listOfRoles.append(Role(roles[i]['role'], when=roles[i]['when']))
+            else:
+                listOfRoles.append(Role(roles[i]['role'], roles[i]['when'], roles[i]['tags']))
+            
         return listOfRoles
 
     def getName(self):
