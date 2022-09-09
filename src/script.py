@@ -7,20 +7,39 @@ from playbook_classes.Task import Task
 import os
 import lib
 
+def checkForReboot(header, task, counterOfPreTasks):
+    if (task.rebootModule or task.rebootCommand) and VMHostInHosts(header.getHosts()):
+        header.getPreTasks().pop(counterOfPreTasks)
+        try:
+            header.addBlock(counterOfPreTasks, task.body['when'])
+        except KeyError:
+            header.addBlock(counterOfPreTasks)
+        lib.counterOfReboots += 1
+        # TODO vyzkouset
+    elif task.notifyHandler:
+        handler = findTheHandler(task.notifiedHandler, listOfRoles=header.getRoles())
+        if handler.rebootModule and VMHostInHosts(header.getHosts()):
+            task.body.pop('notify')
+            try:
+                header.addBlock(counterOfPreTasks + 1, task.body['when'])
+            except KeyError:
+                header.addBlock(counterOfPreTasks + 1)
+            lib.counterOfReboots += 1
+            # TODO vyzkouset
+            
 def rebootInPlaybookPreTasks():
     for header in Playbook.getHeaders():
+        counterOfPreTasks = 0
         for preTask in header.getPreTasks():
-            if preTask.rebootCommand and VMHostInHosts(header.getHosts()):
-                lib.counterOfReboots += 1
-                # TODO uprava playbooku pro reboot control host
-            elif preTask.rebootModule and VMHostInHosts(header.getHosts()):
-                lib.counterOfReboots += 1
-                # TODO uprava playbooku pro reboot control host
-            elif preTask.notifyHandler:
-                handler = findTheHandler(preTask.notifiedHandler, listOfRoles=header.getRoles())
-                if handler.rebootModule and VMHostInHosts(header.getHosts()):
-                    lib.counterOfReboots += 1
-                    # TODO uprava playbooku pro reboot control host
+            checkForReboot(header, preTask, counterOfPreTasks)
+            counterOfPreTasks += 1
+
+def rebootInPlaybookTasks():
+    for header in Playbook.getHeaders():
+        counterOfTasks = 0
+        for task in header.getTasks():
+            checkForReboot(header, task, counterOfTasks)
+            counterOfTasks += 1
 
 def rebootInRole():
     """Finds out which role initiates the reboot
@@ -29,14 +48,15 @@ def rebootInRole():
         for role in header.getRoles():
             counterOfRoleTasks = 0
             for roleTask in role.getRoleTasks():
-                # role task reboots the control host via command
-                if roleTask.rebootCommand and VMHostInHosts(header.getHosts()):
+                # role task reboots the control host via command or via reboot module
+                if (roleTask.rebootModule or roleTask.rebootCommand) and VMHostInHosts(header.getHosts()):
+                    role.getRoleTasks().pop(counterOfRoleTasks)
+                    try:
+                        role.addBlock(counterOfRoleTasks, roleTask.body['when'])
+                    except KeyError:
+                        role.addBlock(counterOfRoleTasks)
                     lib.counterOfReboots += 1
-                    # TODO uprava playbooku pro reboot control host
-                # role task reboots the control host via reboot module
-                elif roleTask.rebootModule and VMHostInHosts(header.getHosts()):
-                    lib.counterOfReboots += 1
-                    #TODO uprava playbooku pro reboot control host
+                    # TODO vyzkouset
                 elif roleTask.notifyHandler:
                     handler = findTheHandler(roleTask.notifiedHandler, role=role)
                     # role task notifies handler, which reboots the control host via reboot module
@@ -79,9 +99,10 @@ def findTheHandler(notifiedHandlers, listOfRoles=None, role=None):
             if name == handler:
                 return handler
     # looking for the handler in the role/tasks/main.yml file
-    # TODO
+    #TODO dodelat
 
 def VMHostInHosts(hosts):
+    # TODO localhost == vmhost???
     """Finds out if the list of hosts contains the vm_host (localhost?)
 
     Args:
@@ -148,6 +169,7 @@ with open('../playbooks/infra/full_nfv.yml') as file:
     Playbook = Playbook(data)
 
 rebootInPlaybookPreTasks()
+rebootInPlaybookTasks()
 rebootInRole()
 
 createCounterVariable()

@@ -1,5 +1,8 @@
 import yaml
 from yamlable import *
+from copy import deepcopy
+import lib
+from playbook_classes.PreTask import PreTask
 
 @yaml_info(yaml_tag_ns='')
 
@@ -35,6 +38,39 @@ class Header(YamlAble):
                 'environment': self.environment,
                 'any_errors_fatal': self.any_errors_fatal}
 
+    def addBlock(self, index, condition=None):
+        """Insert the block of tasks at, which increment the global counter and initiate the reboot, a certain place
+
+        Args:
+            index (int): The position of block in roleTasks list
+            condition (string, optional): When condition. Defaults to None.
+        """
+        # deepcopy creation because of YAML bs
+        tmpRebootTask = deepcopy(lib.rebootTask)
+        if not condition == None:
+            self.roleTasks.insert(index, PreTask({'block': [self.returnIncrementCounterTask(lib.counterOfReboots + 1), tmpRebootTask],
+                                          'when': condition + ' ' + 'and' + ' ' + 'rebootCounter == {}'.format(lib.counterOfReboots)}))
+        else:
+            self.roleTasks.insert(index, PreTask({'block': [self.returnIncrementCounterTask(lib.counterOfReboots + 1), tmpRebootTask],
+                                                   'when': 'rebootCounter == {}'.format(lib.counterOfReboots)}))
+
+    def returnIncrementCounterTask(self, counterOfReboots):
+        """Method which returns the task, which increments the global counter
+
+        Args:
+            counterOfReboots (int): the number of the reboot
+
+        Returns:
+            _type_: _description_
+        """
+        return {
+                "name" : "increment the reboot counter",
+                "lineinfile": {
+                    "dest": "inventory",
+                    "regexp:": "rebootCounter",
+                    "line": "rebootCounter = {}".format(counterOfReboots)
+    }
+}
 
     def __str__(self):
         return ("hosts: " + str(self.hosts) + "\n"
