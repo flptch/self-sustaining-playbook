@@ -5,37 +5,42 @@ from playbook_classes.Playbook import Playbook
 from playbook_classes.PreTask import PreTask
 from playbook_classes.Task import Task
 import os
-import lib    
-            
+import lib
+import argparse
+
 def rebootInPlaybookPreTasks():
+    changeNeeded = False
     for header in Playbook.getHeaders():
         counterOfPreTasks = 0
         for preTask in header.getPreTasks():
             if (preTask.rebootModule or preTask.rebootCommand) and VMHostInHosts(header.getHosts()):
+                changeNeeded = True
                 header.getPreTasks().pop(counterOfPreTasks)
                 try:
                     header.addBlockToPreTasks(counterOfPreTasks, preTask.body['when'])
                 except KeyError:
                     header.addBlockToPreTasks(counterOfPreTasks)
                 lib.counterOfReboots += 1
-            # TODO vyzkouset
             elif preTask.notifyHandler:
                 handler = findTheHandler(preTask.notifiedHandler, listOfRoles=header.getRoles())
                 if handler.rebootModule and VMHostInHosts(header.getHosts()):
+                    changeNeeded = True
                     preTask.body.pop('notify')
                     try:
                         header.addBlockToPreTasks(counterOfPreTasks + 1, preTask.body['when'])
                     except KeyError:
                         header.addBlockToPreTasks(counterOfPreTasks + 1)
                 lib.counterOfReboots += 1
-            # TODO vyzkouset
         counterOfPreTasks += 1
+    return changeNeeded
 
 def rebootInPlaybookTasks():
+    changeNeeded = False
     for header in Playbook.getHeaders():
         counterOfTasks = 0
         for task in header.getTasks():
             if(task.rebootModule or task.rebootCommand) and VMHostInHosts(header.getHosts()):
+                changeNeeded = True
                 header.getTasks().pop(counterOfTasks)
                 try:
                     header.addBlockToTasks(counterOfTasks, task.body['when'])
@@ -45,35 +50,38 @@ def rebootInPlaybookTasks():
             elif task.notifyHandler:
                 handler = findTheHandler(task.notifiedHandler, listOfRoles=header.getRoles())
                 if handler.rebootModule and VMHostInHosts(header.getHosts()):
+                    changeNeeded = True
                     task.body.pop('notify')
                     try:
                         header.addBlockToTasks(counterOfTasks + 1, task.body['when'])
                     except KeyError:
                         header.addBlockToTasks(counterOfTasks + 1)
                 lib.counterOfReboots += 1
-                # TODO vyzkouset
             counterOfTasks += 1
+    return changeNeeded
 
 def rebootInRole():
     """Finds out which role initiates the reboot
     """
+    changeNeeded = False
     for header in Playbook.getHeaders():
         for role in header.getRoles():
             counterOfRoleTasks = 0
             for roleTask in role.getRoleTasks():
                 # role task reboots the control host via command or via reboot module
                 if (roleTask.rebootModule or roleTask.rebootCommand) and VMHostInHosts(header.getHosts()):
+                    changeNeeded = True
                     role.getRoleTasks().pop(counterOfRoleTasks)
                     try:
                         role.addBlock(counterOfRoleTasks, roleTask.body['when'])
                     except KeyError:
                         role.addBlock(counterOfRoleTasks)
                     lib.counterOfReboots += 1
-                    # TODO vyzkouset
                 elif roleTask.notifyHandler:
                     handler = findTheHandler(roleTask.notifiedHandler, role=role)
                     # role task notifies handler, which reboots the control host via reboot module
                     if handler.rebootModule and VMHostInHosts(header.getHosts()):
+                        changeNeeded = True
                         roleTask.body.pop('notify')
                         try:
                             role.addBlock(counterOfRoleTasks + 1, roleTask.body['when'])
@@ -81,6 +89,7 @@ def rebootInRole():
                             role.addBlock(counterOfRoleTasks + 1)
                         lib.counterOfReboots += 1
                 counterOfRoleTasks += 1
+    return changeNeeded
 
 def findTheHandler(notifiedHandlers, listOfRoles=None, role=None):
     """Finds the handler by name and returns it
@@ -177,13 +186,19 @@ def createCounterVariable():
             inventoryFile.write("rebootCounter=0" + "\n")
 
 
-with open('../playbooks/reboot_module_based_reboot.yml') as file:
+ap = argparse.ArgumentParser()
+ap.add_argument('file', metavar='file',type=str, help='the name of the playbook')
+args = ap.parse_args()
+playbookName = args.file
+
+
+with open(playbookName) as file:
     data = yaml.load(file, Loader = SafeLoader)
     Playbook = Playbook(data)
 
-rebootInPlaybookPreTasks()
-rebootInPlaybookTasks()
-rebootInRole()
+if not rebootInPlaybookPreTasks() and not rebootInPlaybookTasks() and not rebootInRole():
+    print('No change needed in provided playbook(s)')
+    exit(0)
 
 createCounterVariable()
 createSystemdUnit()
