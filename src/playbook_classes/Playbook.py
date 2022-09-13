@@ -31,7 +31,10 @@ class Playbook(YamlAble):
         """
         tmpHeaders = []
         for i in range(len(headers)):
-            tmpHeader = Header(self.createHostObjects(headers[i]['hosts']))
+            try:
+                tmpHeader = Header(self.createHostObjects(headers[i]['hosts']))
+            except:
+                tmpHeader = Header(self.createHostObjects(''))
             try:
                 tmpHeader.setTasks(self.createTaskObjects(headers[i]['tasks']))
             except KeyError:

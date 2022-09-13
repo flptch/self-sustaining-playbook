@@ -10,7 +10,7 @@ import argparse
 
 def rebootInPlaybookPreTasks():
     changeNeeded = False
-    for header in Playbook.getHeaders():
+    for header in PlaybookObject.getHeaders():
         counterOfPreTasks = 0
         for preTask in header.getPreTasks():
             if (preTask.rebootModule or preTask.rebootCommand) and VMHostInHosts(header.getHosts()):
@@ -36,7 +36,7 @@ def rebootInPlaybookPreTasks():
 
 def rebootInPlaybookTasks():
     changeNeeded = False
-    for header in Playbook.getHeaders():
+    for header in PlaybookObject.getHeaders():
         counterOfTasks = 0
         for task in header.getTasks():
             if(task.rebootModule or task.rebootCommand) and VMHostInHosts(header.getHosts()):
@@ -64,7 +64,7 @@ def rebootInRole():
     """Finds out which role initiates the reboot
     """
     changeNeeded = False
-    for header in Playbook.getHeaders():
+    for header in PlaybookObject.getHeaders():
         for role in header.getRoles():
             counterOfRoleTasks = 0
             for roleTask in role.getRoleTasks():
@@ -110,7 +110,7 @@ def findTheHandler(notifiedHandlers, listOfRoles=None, role=None):
         
 
     # looking for the handler in the playbook
-    for header in Playbook.getHeaders():
+    for header in PlaybookObject.getHeaders():
         for handler in header.getHandlers():
             for name in notifiedHandlers:
                 if handler.name == name:
@@ -170,11 +170,11 @@ WantedBy=default.target
 def addSystemdTasks():
     """Adds all necessary tasks, which take care of creating, enabling and removing the systemd unit
     """
-    Playbook.getHeaders()[0].getPreTasks().append(PreTask(lib.createSystemdUnitTask))
-    Playbook.getHeaders()[0].getPreTasks().append(PreTask(lib.enableSystemdUnitTask))
-    Playbook.getHeaders()[0].getPreTasks().append(PreTask(lib.daemonReloadTask))
-    Playbook.getHeaders()[len(Playbook.getHeaders()) - 1].getTasks().append(Task(lib.removeSystemdUnitTask))
-    Playbook.getHeaders()[len(Playbook.getHeaders()) - 1].getTasks().append(Task(lib.daemonReloadTask))
+    PlaybookObject.getHeaders()[0].getPreTasks().append(PreTask(lib.createSystemdUnitTask))
+    PlaybookObject.getHeaders()[0].getPreTasks().append(PreTask(lib.enableSystemdUnitTask))
+    PlaybookObject.getHeaders()[0].getPreTasks().append(PreTask(lib.daemonReloadTask))
+    PlaybookObject.getHeaders()[len(PlaybookObject.getHeaders()) - 1].getTasks().append(Task(lib.removeSystemdUnitTask))
+    PlaybookObject.getHeaders()[len(PlaybookObject.getHeaders()) - 1].getTasks().append(Task(lib.daemonReloadTask))
 
 def createCounterVariable():
     #TODO pripravit to na vice use cases
@@ -185,6 +185,19 @@ def createCounterVariable():
         if not lastLine == "rebootCounter=0" + "\n":
             inventoryFile.write("rebootCounter=0" + "\n")
 
+def dumpTheMainPlaybook(playbookName):
+    """Dumps the main playbook
+    """
+    # dumping the main playbook
+    # TODO change to playbook name and error catch
+    with open('../created_playbook.yml', 'w') as createdFile:
+        yaml.dump(PlaybookObject.getHeaders(), createdFile, sort_keys=False)
+
+def dumpTheRoleTasks():
+    for header in PlaybookObject.getHeaders():
+        for role in header.getRoles():
+            with open('../roles/{}/tasks/main.yml'.format(role.name), 'w') as dumpedRoleTasks:
+                yaml.dump(role.getRoleTasks(), dumpedRoleTasks, sort_keys=False)
 
 ap = argparse.ArgumentParser()
 ap.add_argument('file', metavar='file',type=str, help='the name of the playbook')
@@ -192,20 +205,30 @@ args = ap.parse_args()
 playbookName = args.file
 
 
-with open(playbookName) as file:
-    data = yaml.load(file, Loader = SafeLoader)
-    Playbook = Playbook(data)
+listOfPlaybooks = []
+with open(playbookName) as theMainPlaybook:
+    theMainData = yaml.load(theMainPlaybook, Loader=SafeLoader)
+    for header in theMainData:
+        listOfPlaybooks.append(header['import_playbook'])
 
-if not rebootInPlaybookPreTasks() and not rebootInPlaybookTasks() and not rebootInRole():
-    print('No change needed in provided playbook(s)')
-    exit(0)
+for playbookName in listOfPlaybooks:
+    if os.stat('../playbooks/{}'.format(playbookName)).st_size == 0:
+        continue
+    else:
+        with open('../playbooks/{}'.format(playbookName)) as file:
+            data = yaml.load(file, Loader = SafeLoader)
+            PlaybookObject = Playbook(data)
 
-createCounterVariable()
-createSystemdUnit()
-addSystemdTasks()
+        if not rebootInPlaybookPreTasks() and not rebootInPlaybookTasks() and not rebootInRole():
+            # print('No change needed in playbook {}'.format(playbookName))
+            continue
 
-with open('../created_playbook.yml', 'w') as createdFile:
-    documents = yaml.dump(Playbook.getHeaders(), createdFile, sort_keys=False)
+        createCounterVariable()
+        createSystemdUnit()
+        addSystemdTasks()
+
+        dumpTheMainPlaybook(playbookName)
+        #dumpTheRoleTasks()
 
 
 #print(yaml.dump(Playbook.getHeaders()[0], sort_keys=False))
