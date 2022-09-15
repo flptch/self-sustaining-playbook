@@ -87,6 +87,11 @@ class Header(YamlAble):
 }
 
     def __str__(self):
+        """Returns the string representation of the header object
+
+        Returns:
+            string: the representation of the object
+        """
         return ("hosts: " + str(self.hosts) + "\n"
         + "tasks: " + str(self.tasks) + "\n"
         + "pre_tasks:" + str(self.pre_tasks) + "\n"

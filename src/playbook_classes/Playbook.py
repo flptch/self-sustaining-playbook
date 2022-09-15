@@ -91,6 +91,14 @@ class Playbook(YamlAble):
         return listOfHosts
 
     def createTaskObjects(self, tasks):
+        """Creates the task objects
+
+        Args:
+            tasks (List): the list of tasks
+
+        Returns:
+            List: the list of task objects
+        """
         listOfTasks = []
         for i in range(len(tasks)):
             listOfTasks.append(Task(tasks[i]))

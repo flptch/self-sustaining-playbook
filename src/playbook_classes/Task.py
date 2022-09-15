@@ -60,6 +60,3 @@ class Task(YamlAble):
         """returns the string representation of the Task object
         """
         return ("name: " + self.body)
-
-    def wrapTaskToBlock(self):
-        print('sup')
