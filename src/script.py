@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+from cmath import sin
 import yaml
 from yaml.loader import SafeLoader
 from playbook_classes.Playbook import Playbook
@@ -202,11 +203,11 @@ def addSystemdTasks():
     PlaybookObject.getHeaders()[len(PlaybookObject.getHeaders()) - 1].getTasks().append(Task(lib.removeSystemdUnitTask))
     PlaybookObject.getHeaders()[len(PlaybookObject.getHeaders()) - 1].getTasks().append(Task(lib.daemonReloadTask))
 
-def createCounterVariable():
+def createCounterVariable(inventoryFile):
     #TODO pripravit to na vice use cases
     """Creates the global variable Counter used by reboots conditions,
     """
-    with open('../inventory.ini', 'r+') as inventoryFile:
+    with open(inventoryFile, 'r+') as inventoryFile:
         lastLine = inventoryFile.readlines()[-1]
         if not lastLine == "rebootCounter=0" + "\n":
             inventoryFile.write("rebootCounter=0" + "\n")
@@ -228,21 +229,27 @@ def dumpTheRoleTasks():
                 yaml.dump(role.getRoleTasks(), dumpedRoleTasks, sort_keys=False)
 
 ap = argparse.ArgumentParser()
+ap.add_argument('--single-playbook',action='store_true',help=' if the single playbook will be checked')
+ap.add_argument('--inventory-file', default='../inventory.ini',help='the location of the inventory file (default: inventory.ini)')
 ap.add_argument('file', metavar='file',type=str, help='the name of the playbook')
 ap.add_argument('controlHost', metavar='controlHost', type=str, help='the name of the controlHost')
 args = ap.parse_args()
+singlePlaybookSwitch = args.single_playbook
+inventoryFile = args.inventory_file
 playbookName = args.file
 controlHost = args.controlHost
 
-
 listOfPlaybooks = []
-# opening the main playbook, which includes playbooks, which will be checked
-with open(playbookName) as theMainPlaybook:
-    theMainData = yaml.load(theMainPlaybook, Loader=SafeLoader)
-    for header in theMainData:
-        listOfPlaybooks.append(header['import_playbook'])
-
+if not singlePlaybookSwitch:
+    # opening the main playbook, which includes playbooks, which will be checked
+    with open(playbookName) as theMainPlaybook:
+        theMainData = yaml.load(theMainPlaybook, Loader=SafeLoader)
+        for header in theMainData:
+            listOfPlaybooks.append(header['import_playbook'])
+else:
+    listOfPlaybooks.append(playbookName)
 # looping through the imported playbooks
+changedPlaybooks = 0
 for playbookName in listOfPlaybooks:
     # checking if the playbook is empty (idk why it generated empty playbooks)
     if os.stat('../playbooks/{}'.format(playbookName)).st_size == 0:
@@ -260,7 +267,7 @@ for playbookName in listOfPlaybooks:
             continue
 
         # creating the global counter variable 
-        createCounterVariable()
+        createCounterVariable(inventoryFile)
         # creating the systemd unit, which starts the playbook on boot
         createSystemdUnit(playbookName)
         # adds systemd tasks to the playbook pretasks/tasks
@@ -270,7 +277,11 @@ for playbookName in listOfPlaybooks:
         dumpTheMainPlaybook(playbookName)
         # saving playbook roles and their tasks
         #dumpTheRoleTasks()
+        changedPlaybooks += 1
 
 
 #print(yaml.dump(Playbook.getHeaders()[0], sort_keys=False))
+if changedPlaybooks == 0:
+    print('No change was made...')
+    exit(0)
 print(lib.counterOfReboots)
