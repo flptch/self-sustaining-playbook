@@ -139,10 +139,10 @@ class Playbook(YamlAble):
         """Creates the Role objects
 
         Args:
-            roles (List): _
+            roles (List): the list of names of roles
 
         Returns:
-            _type_: _description_
+            List: the list of role objects
         """
         listOfRoles = []
         for i in range(len(roles)):

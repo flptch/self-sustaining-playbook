@@ -204,7 +204,7 @@ def addSystemdTasks():
     PlaybookObject.getHeaders()[len(PlaybookObject.getHeaders()) - 1].getTasks().append(Task(lib.daemonReloadTask))
 
 def createCounterVariable(inventoryFile):
-    #TODO pripravit to na vice use cases
+    #TODO pripravit to na vice use cases, momentalne to pridava proste nakonec souboru
     """Creates the global variable Counter used by reboots conditions,
     """
     with open(inventoryFile, 'r+') as inventoryFile:
@@ -225,19 +225,24 @@ def dumpTheRoleTasks():
     """
     for header in PlaybookObject.getHeaders():
         for role in header.getRoles():
-            with open('../roles/{}/tasks/main.yml'.format(role.name), 'w') as dumpedRoleTasks:
+            with open('{}/{}/tasks/main.yml'.format(lib.rolesFolder, role.name), 'w') as dumpedRoleTasks:
                 yaml.dump(role.getRoleTasks(), dumpedRoleTasks, sort_keys=False)
 
 ap = argparse.ArgumentParser()
 ap.add_argument('--single-playbook',action='store_true',help=' if the single playbook will be checked')
-ap.add_argument('--inventory-file', default='../inventory.ini',help='the location of the inventory file (default: inventory.ini)')
+ap.add_argument('--inventory-file', metavar='',default="../inventory.ini",help='the location of the inventory file (default: ../inventory.ini)')
+ap.add_argument('--roles-folder', metavar='', default='../roles', help='the location of the roles folder (default: ../roles)')
+ap.add_argument('--playbooks-folder', metavar='', default='../playbooks', help='the location of the playbooks folder (default: ../playbooks)')
 ap.add_argument('file', metavar='file',type=str, help='the name of the playbook')
-ap.add_argument('controlHost', metavar='controlHost', type=str, help='the name of the controlHost')
+ap.add_argument('controlHost', metavar='control_host', type=str, help='the name of the controlHost')
 args = ap.parse_args()
 singlePlaybookSwitch = args.single_playbook
 inventoryFile = args.inventory_file
+lib.rolesFolder = args.roles_folder
+lib.playbooksFolder = args.playbooks_folder
 playbookName = args.file
 controlHost = args.controlHost
+
 
 listOfPlaybooks = []
 if not singlePlaybookSwitch:

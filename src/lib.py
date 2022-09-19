@@ -1,4 +1,7 @@
 counterOfReboots = 0
+rolesFolder = "../roles"
+playbooksFolder = "../playbooks"
+
 
 incrementCounterTask = {
     "name" : "increment the reboot counter",

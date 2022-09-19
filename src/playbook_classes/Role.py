@@ -31,7 +31,7 @@ class Role(YamlAble):
         """
         roleHandlers = []
         try:
-            with open('../roles/{}/handlers/main.yml'.format(self.name)) as file:
+            with open('{}/{}/handlers/main.yml'.format(lib.rolesFolder, self.name)) as file:
                 roleHandlersMainFile = yaml.load(file, Loader=SafeLoader)
                 for i in roleHandlersMainFile:
                     roleHandlers.append(RoleHandler(i))
@@ -46,7 +46,7 @@ class Role(YamlAble):
             List: the list of task Objects defined the role
         """
         roleTasks = []
-        with open('../roles/{}/tasks/main.yml'.format(self.name)) as f:
+        with open('{}/{}/tasks/main.yml'.format(lib.rolesFolder, self.name)) as f:
             roleMainFile = yaml.load(f, Loader=SafeLoader)
         try:
             for i in roleMainFile:
