@@ -165,16 +165,16 @@ def VMHostInHosts(hosts, controlHost):
             return True
     return False
 
-def createSystemdUnit(playbookName):
+def createSystemdUnit(playbookName, systemdUnitLocation, inventoryFile):
     """Creates the systemd unit file, which takes care of executing the playbook on boot
     """
-    #TODO cesta
+
     try:
         os.mkdir('files')
     except FileExistsError:
         pass
 
-    with open('files/{}.service'.format(os.getlogin()), 'w') as systemdUnit:
+    with open(systemdUnitLocation, 'w') as systemdUnit:
         systemdUnit.write('''[Unit]
 Description=Run ansible playbook on boot
 After=default.target
@@ -185,13 +185,13 @@ Before=shutdown.target
 Type=oneshot
 DISPLAY=:0
 User={}
-ExecStart=/bin/bash -c 'DISPLAY=:0 xterm -geometry 120x50+500 -hold -e sudo ansible-playbook -i /home/filip/work/self-sustaining-playbook/inventory.ini /home/filip/self-sustaining-playbook/playbooks/{}'
+ExecStart=/bin/bash -c 'DISPLAY=:0 xterm -geometry 120x50+500 -hold -e sudo ansible-playbook -i {} {}'
 User={}
 
 [Install]
 WantedBy=default.target
 
-'''.format(os.getlogin(), playbookName,os.getlogin()))
+'''.format(os.getlogin(), os.path.abspath(inventoryFile),os.path.abspath(playbookName),os.getlogin()))
 
 
 def addSystemdTasks():
@@ -222,7 +222,7 @@ def createCounterVariable(inventoryFile):
     if not varsFound:
         lines.append("[all:vars]" + "\n")
         lines.append("rebootCounter=0" + "\n")
-        
+
     with open(inventoryFile, 'w') as file:
         file.writelines(lines)
 
@@ -247,6 +247,7 @@ ap.add_argument('--single-playbook',action='store_true',help=' if the single pla
 ap.add_argument('--inventory-file', metavar='',default="../inventory.ini",help='the location of the inventory file (default: ../inventory.ini)')
 ap.add_argument('--roles-folder', metavar='', default='../roles', help='the location of the roles folder (default: ../roles)')
 ap.add_argument('--playbooks-folder', metavar='', default='../playbooks', help='the location of the playbooks folder (default: ../playbooks)')
+ap.add_argument('--systemd-unit', metavar='', default='files/{}.service'.format(os.getlogin()), help='the location where the systemd unit will be created (default: files)')
 ap.add_argument('file', metavar='file',type=str, help='the name of the playbook')
 ap.add_argument('controlHost', metavar='control_host', type=str, help='the name of the controlHost')
 args = ap.parse_args()
@@ -254,6 +255,7 @@ singlePlaybookSwitch = args.single_playbook
 inventoryFile = args.inventory_file
 lib.rolesFolder = args.roles_folder
 lib.playbooksFolder = args.playbooks_folder
+systemdUnitLocation = args.systemd_unit
 playbookName = args.file
 controlHost = args.controlHost
 
@@ -294,7 +296,7 @@ for playbookName in listOfPlaybooks:
     # creating the global counter variable 
     createCounterVariable(inventoryFile)
     # creating the systemd unit, which starts the playbook on boot
-    createSystemdUnit(playbookName)
+    createSystemdUnit(playbookName, systemdUnitLocation, inventoryFile)
     # adds systemd tasks to the playbook pretasks/tasks
     addSystemdTasks()
     # saving the main playbook
