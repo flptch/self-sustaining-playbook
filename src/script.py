@@ -204,13 +204,27 @@ def addSystemdTasks():
     PlaybookObject.getHeaders()[len(PlaybookObject.getHeaders()) - 1].getTasks().append(Task(lib.daemonReloadTask))
 
 def createCounterVariable(inventoryFile):
-    #TODO pripravit to na vice use cases, momentalne to pridava proste nakonec souboru
     """Creates the global variable Counter used by reboots conditions,
     """
-    with open(inventoryFile, 'r+') as inventoryFile:
-        lastLine = inventoryFile.readlines()[-1]
-        if not lastLine == "rebootCounter=0" + "\n":
-            inventoryFile.write("rebootCounter=0" + "\n")
+    with open(inventoryFile, 'r') as file:
+        lines = file.readlines()
+
+    counter = 0
+    varsFound = False
+    for line in lines:
+        if '[all:vars]' in line:
+            varsFound = True
+            line.replace(line,line + "\n")
+            if not lines[counter + 1] == "rebootCounter=0" + "\n":
+                lines.insert(counter + 1, "rebootCounter=0" + "\n")
+        counter += 1
+
+    if not varsFound:
+        lines.append("[all:vars]" + "\n")
+        lines.append("rebootCounter=0" + "\n")
+        
+    with open(inventoryFile, 'w') as file:
+        file.writelines(lines)
 
 def dumpTheMainPlaybook(playbookName):
     """Dumps the main playbook
@@ -220,7 +234,7 @@ def dumpTheMainPlaybook(playbookName):
     with open('../created_playbook.yml', 'w') as createdFile:
         yaml.dump(PlaybookObject.getHeaders(), createdFile, sort_keys=False)
 
-def dumpTheRoleTasks():
+def dumpTheRoleTasks( ):
     """Dumps role tasks
     """
     for header in PlaybookObject.getHeaders():
@@ -257,36 +271,42 @@ else:
 changedPlaybooks = 0
 for playbookName in listOfPlaybooks:
     # checking if the playbook is empty (idk why it generated empty playbooks)
-    if os.stat('../playbooks/{}'.format(playbookName)).st_size == 0:
-        continue
-    else:
-        # opening the playbook to be checked for reboots
-        with open('../playbooks/{}'.format(playbookName)) as file:
-            data = yaml.load(file, Loader = SafeLoader)
-            # creating the playbook object
-            PlaybookObject = Playbook(data)
-
-        # checking all of possible reboots 
-        if not rebootInPlaybookPreTasks(controlHost) and not rebootInPlaybookTasks(controlHost) and not rebootInRole(controlHost):
-            # print('No change needed in playbook {}'.format(playbookName))
+    if singlePlaybookSwitch:
+        if os.stat(playbookName).st_size == 0:
             continue
+        else:
+            with open(playbookName) as file:
+                data = yaml.load(file, Loader=SafeLoader)
+                PlaybookObject = Playbook(data)
+    else:
+        if os.stat('{}/{}'.format(lib.playbooksFolder, playbookName)).st_size == 0:
+            continue
+        else:
+            with open('{}/{}'.format(lib.playbooksFolder, playbookName)) as file:
+                data = yaml.load(file, Loader = SafeLoader)
+                # creating the playbook object
+                PlaybookObject = Playbook(data)
 
-        # creating the global counter variable 
-        createCounterVariable(inventoryFile)
-        # creating the systemd unit, which starts the playbook on boot
-        createSystemdUnit(playbookName)
-        # adds systemd tasks to the playbook pretasks/tasks
-        addSystemdTasks()
-
-        # saving the main playbook
-        dumpTheMainPlaybook(playbookName)
-        # saving playbook roles and their tasks
-        #dumpTheRoleTasks()
-        changedPlaybooks += 1
+    # checking all of possible reboots 
+    if not rebootInPlaybookPreTasks(controlHost) and not rebootInPlaybookTasks(controlHost) and not rebootInRole(controlHost):
+        # print('No change needed in playbook {}'.format(playbookName))
+        continue
+    # creating the global counter variable 
+    createCounterVariable(inventoryFile)
+    # creating the systemd unit, which starts the playbook on boot
+    createSystemdUnit(playbookName)
+    # adds systemd tasks to the playbook pretasks/tasks
+    addSystemdTasks()
+    # saving the main playbook
+    dumpTheMainPlaybook(playbookName)
+    # saving playbook roles and their tasks
+    #dumpTheRoleTasks()
+    changedPlaybooks += 1
 
 
 #print(yaml.dump(Playbook.getHeaders()[0], sort_keys=False))
 if changedPlaybooks == 0:
     print('No change was made...')
     exit(0)
+
 print(lib.counterOfReboots)

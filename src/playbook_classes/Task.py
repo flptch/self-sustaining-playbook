@@ -13,7 +13,7 @@ class Task(YamlAble):
         """
         self.body = body
         if not 'block' in body:
-            self.name = self.body['name']  
+            self.name = self.body['name']
         self.rebootModule = self.initiateReboot()
         self.notifyHandler = self.usesHandler()
         self.rebootCommand = self.commandReboot()
@@ -59,4 +59,4 @@ class Task(YamlAble):
     def __str__(self):
         """returns the string representation of the Task object
         """
-        return ("name: " + self.body)
+        return self.name
