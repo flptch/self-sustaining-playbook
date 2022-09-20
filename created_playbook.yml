@@ -45,6 +45,7 @@
     tags: always
     register: uptimeoutput
     command: uptime
+  - local_action: copy content={{ uptimeoutput }} dest=~/uptime.txt
   - name: delete the systemd unit
     tags: always
     file:

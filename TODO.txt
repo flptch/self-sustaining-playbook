@@ -1,9 +1,3 @@
 local action vyresit nejak
 vytvareni counter variable do sekce [all:vars] a ne jen na konec souboru - kdyztam neni all vars tak pridat - DONE
-alternativni misto na vytvoreni systemd unity pomoci argumentu
-hledat handler v roletasku
-
-potreba establishnout ktery playbooky kontrolovat
-	uzivatel si v tom projektu zvoli urcitej profil a podle nej se vygenerujou playbooky do urcitejch mist
-	a ty je potreba zkontrolovat 
-	hlavni playbook kterej spousti ti ostatni je ve slozce playbook
+alternativni misto na vytvoreni systemd unity pomoci argumentu - DONE

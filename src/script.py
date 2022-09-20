@@ -148,8 +148,7 @@ def findTheHandler(notifiedHandlers, listOfRoles=None, role=None):
         for name in notifiedHandlers:
             if name == handler:
                 return handler
-    # looking for the handler in the role/tasks/main.yml file
-    #TODO
+   
 
 def VMHostInHosts(hosts, controlHost):
     """Finds out if the list of hosts contains the control host
