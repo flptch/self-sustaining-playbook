@@ -71,18 +71,6 @@ class Role(YamlAble):
         """
         return self.roleHandlers
 
-    '''def wrapRoleTaskToBlock(self, name,counterOfReboots):
-        """Creates the block of commands, which increment the global counter and reboot the control host
-
-        Args:
-            name (string): name of the task
-            counterOfReboots (int): the numner of the reboot
-        """
-        for i in self.roleTasks:
-            if i.name == name:
-                i.body = {'block': [lib.incrementCounterTask, lib.rebootTask],
-                          'when': 'rebootCounter == {}'.format(counterOfReboots)}
-'''
     def addBlock(self, index, condition=None):
         """Insert the block of tasks at, which increment the global counter and initiate the reboot, a certain place
 
@@ -90,7 +78,7 @@ class Role(YamlAble):
             index (int): The position of block in roleTasks list
             condition (string, optional): When condition. Defaults to None.
         """
-        # deepcopy creation because of YAML bs
+        # deepcopy creation because of YAML
         tmpRebootTask = deepcopy(lib.rebootTask)
         if not condition == None:
             self.roleTasks.insert(index, RoleTask({'block': [self.returnIncrementCounterTask(lib.counterOfReboots + 1), tmpRebootTask],

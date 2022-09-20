@@ -41,7 +41,7 @@ class Header(YamlAble):
 
         Args:
             index (int): The position of block in roleTasks list
-            condition (string, optional): When condition. Defaults to None.
+            condition (string, optional): When condition. Default is None.
         """
         # deepcopy creation because of YAML bs
         tmpRebootTask = deepcopy(lib.rebootTask)

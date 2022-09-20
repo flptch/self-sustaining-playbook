@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-from cmath import sin
 import yaml
 from yaml.loader import SafeLoader
 from playbook_classes.Playbook import Playbook
@@ -20,7 +19,7 @@ def rebootInPlaybookPreTasks(controlHost):
         counterOfPreTasks = 0
         for preTask in header.getPreTasks():
             # the pretask reboots the localhost via reboot module or reboot command
-            if (preTask.rebootModule or preTask.rebootCommand) and VMHostInHosts(header.getHosts(), controlHost):
+            if (preTask.rebootModule or preTask.rebootCommand) and controlHostInHosts(header.getHosts(), controlHost):
                 changeNeeded = True
                 # deletes the pretask which reboots the localhost
                 header.getPreTasks().pop(counterOfPreTasks)
@@ -34,7 +33,7 @@ def rebootInPlaybookPreTasks(controlHost):
             elif preTask.notifyHandler:
                 handler = findTheHandler(preTask.notifiedHandler, listOfRoles=header.getRoles())
                 # the handler reboots the localhost
-                if handler.rebootModule and VMHostInHosts(header.getHosts(), controlHost):
+                if handler.rebootModule and controlHostInHosts(header.getHosts(), controlHost):
                     changeNeeded = True
                     # deletes the notify section
                     preTask.body.pop('notify')
@@ -58,7 +57,7 @@ def rebootInPlaybookTasks(controlHost):
         counterOfTasks = 0
         for task in header.getTasks():
             # the tasks reboots the localhost via reboot command or reboot module
-            if(task.rebootModule or task.rebootCommand) and VMHostInHosts(header.getHosts(), controlHost):
+            if(task.rebootModule or task.rebootCommand) and controlHostInHosts(header.getHosts(), controlHost):
                 changeNeeded = True
                 # deletes the reboot task
                 header.getTasks().pop(counterOfTasks)
@@ -72,7 +71,7 @@ def rebootInPlaybookTasks(controlHost):
             elif task.notifyHandler:
                 handler = findTheHandler(task.notifiedHandler, listOfRoles=header.getRoles())
                 # the notified handler reboots the localhost
-                if handler.rebootModule and VMHostInHosts(header.getHosts(), controlHost):
+                if handler.rebootModule and controlHostInHosts(header.getHosts(), controlHost):
                     changeNeeded = True
                     # deletes the notify section
                     task.body.pop('notify')
@@ -97,7 +96,7 @@ def rebootInRole(controlHost):
             counterOfRoleTasks = 0
             for roleTask in role.getRoleTasks():
                 # role task reboots the control host via command or via reboot module
-                if (roleTask.rebootModule or roleTask.rebootCommand) and VMHostInHosts(header.getHosts(), controlHost):
+                if (roleTask.rebootModule or roleTask.rebootCommand) and controlHostInHosts(header.getHosts(), controlHost):
                     changeNeeded = True
                     role.getRoleTasks().pop(counterOfRoleTasks)
                     try:
@@ -108,7 +107,7 @@ def rebootInRole(controlHost):
                 elif roleTask.notifyHandler:
                     handler = findTheHandler(roleTask.notifiedHandler, role=role)
                     # role task notifies handler, which reboots the control host via reboot module
-                    if handler.rebootModule and VMHostInHosts(header.getHosts(), controlHost):
+                    if handler.rebootModule and controlHostInHosts(header.getHosts(), controlHost):
                         changeNeeded = True
                         roleTask.body.pop('notify')
                         try:
@@ -150,11 +149,12 @@ def findTheHandler(notifiedHandlers, listOfRoles=None, role=None):
                 return handler
    
 
-def VMHostInHosts(hosts, controlHost):
+def controlHostInHosts(hosts, controlHost):
     """Finds out if the list of hosts contains the control host
 
     Args:
         hosts (List): List of hosts in the header
+        controlHost (string): the name of the control host
 
     Returns:
         bool: True - if vm_host is in the list hosts, False - otherwise
@@ -165,7 +165,12 @@ def VMHostInHosts(hosts, controlHost):
     return False
 
 def createSystemdUnit(playbookName, systemdUnitLocation, inventoryFile):
-    """Creates the systemd unit file, which takes care of executing the playbook on boot
+    """Creates the systemd unit to the given location
+
+    Args:
+        playbookName (string): the name of the playbook
+        systemdUnitLocation (string): the location where the systemd unit will be created
+        inventoryFile (string): the location of the inventory file
     """
 
     try:
@@ -203,7 +208,10 @@ def addSystemdTasks():
     PlaybookObject.getHeaders()[len(PlaybookObject.getHeaders()) - 1].getTasks().append(Task(lib.daemonReloadTask))
 
 def createCounterVariable(inventoryFile):
-    """Creates the global variable Counter used by reboots conditions,
+    """Creates the global variable Counter used by reboots conditions
+
+    Args:
+        inventoryFile (string): the location of the inventory file
     """
     with open(inventoryFile, 'r') as file:
         lines = file.readlines()
@@ -227,13 +235,15 @@ def createCounterVariable(inventoryFile):
 
 def dumpTheMainPlaybook(playbookName):
     """Dumps the main playbook
+
+    Args:
+        playbookName (string): the name of the playbook
     """
-    # dumping the main playbook
-    # TODO change to playbook name and error catch
+    # TODO right now it creates a new file for testing purposes, change "createdFile" to "playbookName" later
     with open('../created_playbook.yml', 'w') as createdFile:
         yaml.dump(PlaybookObject.getHeaders(), createdFile, sort_keys=False)
 
-def dumpTheRoleTasks( ):
+def dumpTheRoleTasks():
     """Dumps role tasks
     """
     for header in PlaybookObject.getHeaders():
@@ -241,6 +251,7 @@ def dumpTheRoleTasks( ):
             with open('{}/{}/tasks/main.yml'.format(lib.rolesFolder, role.name), 'w') as dumpedRoleTasks:
                 yaml.dump(role.getRoleTasks(), dumpedRoleTasks, sort_keys=False)
 
+# parsing arguments
 ap = argparse.ArgumentParser()
 ap.add_argument('--single-playbook',action='store_true',help=' if the single playbook will be checked')
 ap.add_argument('--inventory-file', metavar='',default="../inventory.ini",help='the location of the inventory file (default: ../inventory.ini)')
@@ -288,10 +299,11 @@ for playbookName in listOfPlaybooks:
                 # creating the playbook object
                 PlaybookObject = Playbook(data)
 
-    # checking all of possible reboots 
+    # checking for all possible reboots of the control host 
     if not rebootInPlaybookPreTasks(controlHost) and not rebootInPlaybookTasks(controlHost) and not rebootInRole(controlHost):
         # print('No change needed in playbook {}'.format(playbookName))
         continue
+
     # creating the global counter variable 
     createCounterVariable(inventoryFile)
     # creating the systemd unit, which starts the playbook on boot
@@ -305,9 +317,6 @@ for playbookName in listOfPlaybooks:
     changedPlaybooks += 1
 
 
-#print(yaml.dump(Playbook.getHeaders()[0], sort_keys=False))
 if changedPlaybooks == 0:
     print('No change was made...')
     exit(0)
-
-print(lib.counterOfReboots)

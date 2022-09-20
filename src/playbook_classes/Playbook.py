@@ -33,7 +33,7 @@ class Playbook(YamlAble):
         for i in range(len(headers)):
             try:
                 tmpHeader = Header(self.createHostObjects(headers[i]['hosts']))
-            except:
+            except KeyError:
                 tmpHeader = Header(self.createHostObjects(''))
             try:
                 tmpHeader.setTasks(self.createTaskObjects(headers[i]['tasks']))
@@ -41,31 +41,31 @@ class Playbook(YamlAble):
                 tmpHeader.setTasks([])
             try:
                 tmpHeader.setPreTasks(self.createPreTaskObjects(headers[i]['pre_tasks']))
-            except:
+            except KeyError:
                 tmpHeader.setPreTasks([])
             try:
                 tmpHeader.setHandlers(self.createHandlerObjects(headers[i]['handlers']))
-            except:
+            except KeyError:
                 tmpHeader.setHandlers([])
             try:
                 tmpHeader.setRoles(self.createRoleObjects(headers[i]['roles']))
-            except:
+            except KeyError:
                 tmpHeader.setRoles([])
             try:
                 tmpHeader.setEnvironment(headers[i]['environment'])
-            except:
+            except KeyError:
                 tmpHeader.setEnvironment('')
             try:
                 tmpHeader.setAnyErrorsFatal(headers[i]['any_errors_fatal'])
-            except:
+            except KeyError:
                 tmpHeader.setAnyErrorsFatal('')
             try:
                 tmpHeader.setBecome(headers[i]['become'])
-            except:
+            except KeyError:
                 tmpHeader.setBecome('')
             try:
                 tmpHeader.setBecomeUser(headers[i]['become_user'])
-            except:
+            except KeyError:
                 tmpHeader.setBecomeUser('')
 
             tmpHeaders.append(tmpHeader)
@@ -82,8 +82,6 @@ class Playbook(YamlAble):
             List: the list of Hosts objects
         """
         listOfHosts = []
-        #hosts = hosts.split(",")
-        #for i in range(len(hosts)):
         hosts = hosts.split(',')
         for host in hosts:
             listOfHosts.append((host))

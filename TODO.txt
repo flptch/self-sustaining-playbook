@@ -1,3 +1,4 @@
 local action vyresit nejak
 vytvareni counter variable do sekce [all:vars] a ne jen na konec souboru - kdyztam neni all vars tak pridat - DONE
 alternativni misto na vytvoreni systemd unity pomoci argumentu - DONE
+upravit README
