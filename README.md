@@ -2,9 +2,7 @@
 
 ## Description
 The python script, which edits the ansible playbook, which reboots the control host. \
-Originally it is made for the https://github.com/intel/container-experience-kits project, the functionality on other projects is not guaranteed. 
-
-## How does it work
+The script is still being implemented, the right functionality is not guaranteed.
 
 ## How to run the script
 The script has two positional arguments: file - the name of the playbook, control_host - the name of the control host. \
@@ -20,8 +18,9 @@ The playbook example:
   . \
   . \
   . \
+
 Run: python3 script.py ../playbooks/full_nfv.yml vm_host \
-It will check all the included playbooks the reboot of the control host.
+It will check all the included playbooks for the reboot of the control host.
 
 
 Another playbook example:
