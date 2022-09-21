@@ -1,16 +1,10 @@
+import os
+
 counterOfReboots = 0
 rolesFolder = "../roles"
 playbooksFolder = "../playbooks"
-
-
-incrementCounterTask = {
-    "name" : "increment the reboot counter",
-    "lineinfile": {
-        "dest": "inventory",
-        "regexp:": "rebootCounter",
-        "line": "rebootCounter = {}".format(counterOfReboots)
-    }
-}
+inventoryFile = "inventory.ini"
+systemdUnitLocation = os.path.abspath('files/{}.service').format(os.getlogin())
 
 rebootTask = {
     "name" : "reboot the local host",
@@ -21,7 +15,7 @@ createSystemdUnitTask = {
     "name": "create the systemd unit to start the second playbook after reboot",
     "tags": "always",
     "copy": {
-        "src": "files/filip.service",
+        "src": systemdUnitLocation,
         "dest": "/etc/systemd/system"
     }
 }
@@ -29,7 +23,7 @@ createSystemdUnitTask = {
 enableSystemdUnitTask = {
     "name": "enable the unit to execute at reboot",
     "tags": "always",
-    "command": "sudo systemctl enable filip.service"
+    "command": "sudo systemctl enable {}.service".format(os.getlogin())
 }
 
 daemonReloadTask = {
@@ -43,7 +37,7 @@ removeSystemdUnitTask = {
     "tags": "always",
     "file" : {
         "state": "absent",
-        "path": "/etc/systemd/system/filip.service"
+        "path": "/etc/systemd/system/{}.service".format(os.getlogin())
     }
 }
 

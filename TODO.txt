@@ -1,4 +1,6 @@
-local action vyresit nejak
+local action vyresit nejak - DONE
 vytvareni counter variable do sekce [all:vars] a ne jen na konec souboru - kdyztam neni all vars tak pridat - DONE
 alternativni misto na vytvoreni systemd unity pomoci argumentu - DONE
-upravit README
+upravit README - DONE
+vyresit cestu u systemd unity, aby byla univerzalni - DONE
+vyresit proc se variable counter nenahradi, ale vytvori se nova

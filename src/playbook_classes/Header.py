@@ -1,4 +1,5 @@
 import yaml
+import os
 from yamlable import *
 from copy import deepcopy
 import lib
@@ -80,9 +81,9 @@ class Header(YamlAble):
         return {
                 "name" : "increment the reboot counter",
                 "lineinfile": {
-                    "dest": "inventory",
-                    "regexp:": "rebootCounter",
-                    "line": "rebootCounter = {}".format(counterOfReboots)
+                    "dest": os.path.join(os.getcwd(), lib.inventoryFile),
+                    "regexp": "rebootCounter",
+                    "line": "rebootCounter={}".format(counterOfReboots)
     }
 }
 

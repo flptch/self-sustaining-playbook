@@ -195,7 +195,7 @@ User={}
 [Install]
 WantedBy=default.target
 
-'''.format(os.getlogin(), os.path.abspath(inventoryFile),os.path.abspath(playbookName),os.getlogin()))
+'''.format(os.getlogin(), os.path.abspath(inventoryFile),os.path.abspath("../created_playbook.yml"),os.getlogin()))
 
 
 def addSystemdTasks():
@@ -213,7 +213,7 @@ def createCounterVariable(inventoryFile):
     Args:
         inventoryFile (string): the location of the inventory file
     """
-    with open(inventoryFile, 'r') as file:
+    with open(os.path.join(os.path.dirname("src"), lib.inventoryFile), 'r') as file:
         lines = file.readlines()
 
     counter = 0
@@ -262,13 +262,12 @@ ap.add_argument('file', metavar='file',type=str, help='the name of the playbook'
 ap.add_argument('controlHost', metavar='control_host', type=str, help='the name of the controlHost')
 args = ap.parse_args()
 singlePlaybookSwitch = args.single_playbook
-inventoryFile = args.inventory_file
+lib.inventoryFile = args.inventory_file
 lib.rolesFolder = args.roles_folder
 lib.playbooksFolder = args.playbooks_folder
-systemdUnitLocation = args.systemd_unit
+lib.systemdUnitLocation = args.systemd_unit
 playbookName = args.file
 controlHost = args.controlHost
-
 
 listOfPlaybooks = []
 if not singlePlaybookSwitch:
@@ -305,9 +304,9 @@ for playbookName in listOfPlaybooks:
         continue
 
     # creating the global counter variable 
-    createCounterVariable(inventoryFile)
+    createCounterVariable(lib.inventoryFile)
     # creating the systemd unit, which starts the playbook on boot
-    createSystemdUnit(playbookName, systemdUnitLocation, inventoryFile)
+    createSystemdUnit(playbookName, lib.systemdUnitLocation, lib.inventoryFile)
     # adds systemd tasks to the playbook pretasks/tasks
     addSystemdTasks()
     # saving the main playbook

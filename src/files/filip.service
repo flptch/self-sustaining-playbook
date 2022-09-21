@@ -8,7 +8,7 @@ Before=shutdown.target
 Type=oneshot
 DISPLAY=:0
 User=filip
-ExecStart=/bin/bash -c 'DISPLAY=:0 xterm -geometry 120x50+500 -hold -e sudo ansible-playbook -i /home/filip/work/self-sustaining-playbook/inventory.ini /home/filip/work/self-sustaining-playbook/playbooks/reboot_playbook.yml'
+ExecStart=/bin/bash -c 'DISPLAY=:0 xterm -geometry 120x50+500 -hold -e sudo ansible-playbook -i /home/filip/work/self-sustaining-playbook/inventory.ini /home/filip/work/self-sustaining-playbook/created_playbook.yml'
 User=filip
 
 [Install]

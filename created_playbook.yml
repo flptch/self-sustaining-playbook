@@ -9,7 +9,7 @@
   - name: create the systemd unit to start the second playbook after reboot
     tags: always
     copy:
-      src: files/filip.service
+      src: /home/filip/work/self-sustaining-playbook/src/files/filip.service
       dest: /etc/systemd/system
   - name: enable the unit to execute at reboot
     tags: always
@@ -35,9 +35,9 @@
   - block:
     - name: increment the reboot counter
       lineinfile:
-        dest: inventory
-        'regexp:': rebootCounter
-        line: rebootCounter = 1
+        dest: /home/filip/work/self-sustaining-playbook/src/../inventory.ini
+        regexp: rebootCounter
+        line: rebootCounter=1
     - name: reboot the local host
       command: sudo reboot
     when: rebootCounter == 0
