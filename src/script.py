@@ -131,23 +131,19 @@ def findTheHandler(notifiedHandlers, listOfRoles=None, role=None):
     if not listOfRoles is None:
         for role in listOfRoles:
             for handler in role.getRoleHandlers():
-                for name in notifiedHandlers:
-                    if name == handler.name:
-                        return handler
-        
+                if handler.name in notifiedHandlers:
+                    return handler
 
     # looking for the handler in the playbook
     for header in PlaybookObject.getHeaders():
         for handler in header.getHandlers():
-            for name in notifiedHandlers:
-                if handler.name == name:
-                    return handler
+            if handler.name in notifiedHandlers:
+                return handler
+
     # looking for the handler in the role/handlers folder
     for handler in role.getRoleHandlers():
-        for name in notifiedHandlers:
-            if name == handler:
-                return handler
-   
+        if handler.name in notifiedHandlers:
+            return handler
 
 def controlHostInHosts(hosts, controlHost):
     """Finds out if the list of hosts contains the control host
