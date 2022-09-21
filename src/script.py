@@ -179,7 +179,7 @@ def createSystemdUnit(playbookName, systemdUnitLocation, inventoryFile):
         pass
 
     with open(systemdUnitLocation, 'w') as systemdUnit:
-        systemdUnit.write('''[Unit]
+        systemdUnit.write(f'''[Unit]
 Description=Run ansible playbook on boot
 After=default.target
 DefaultDependecies=no
@@ -188,14 +188,14 @@ Before=shutdown.target
 [Service]
 Type=oneshot
 DISPLAY=:0
-User={}
-ExecStart=/bin/bash -c 'DISPLAY=:0 xterm -geometry 120x50+500 -hold -e sudo ansible-playbook -i {} {}'
-User={}
+User={os.getlogin()}
+ExecStart=/bin/bash -c 'DISPLAY=:0 xterm -geometry 120x50+500 -hold -e sudo ansible-playbook -i {os.path.abspath(inventoryFile)} {os.path.abspath("../created_playbook.yml")}'
+User={os.getlogin()}
 
 [Install]
 WantedBy=default.target
 
-'''.format(os.getlogin(), os.path.abspath(inventoryFile),os.path.abspath("../created_playbook.yml"),os.getlogin()))
+''')
 
 
 def addSystemdTasks():
@@ -248,7 +248,7 @@ def dumpTheRoleTasks():
     """
     for header in PlaybookObject.getHeaders():
         for role in header.getRoles():
-            with open('{}/{}/tasks/main.yml'.format(lib.rolesFolder, role.name), 'w') as dumpedRoleTasks:
+            with open(f'{lib.rolesFolder}/{role.name}/tasks/main.yml', 'w') as dumpedRoleTasks:
                 yaml.dump(role.getRoleTasks(), dumpedRoleTasks, sort_keys=False)
 
 # parsing arguments
@@ -257,7 +257,7 @@ ap.add_argument('--single-playbook',action='store_true',help=' if the single pla
 ap.add_argument('--inventory-file', metavar='',default="../inventory.ini",help='the location of the inventory file (default: ../inventory.ini)')
 ap.add_argument('--roles-folder', metavar='', default='../roles', help='the location of the roles folder (default: ../roles)')
 ap.add_argument('--playbooks-folder', metavar='', default='../playbooks', help='the location of the playbooks folder (default: ../playbooks)')
-ap.add_argument('--systemd-unit', metavar='', default='files/{}.service'.format(os.getlogin()), help='the location where the systemd unit will be created (default: files)')
+ap.add_argument('--systemd-unit', metavar='', default=f'files/{os.getlogin()}.service', help='the location where the systemd unit will be created (default: files)')
 ap.add_argument('file', metavar='file',type=str, help='the name of the playbook')
 ap.add_argument('controlHost', metavar='control_host', type=str, help='the name of the controlHost')
 args = ap.parse_args()
@@ -290,10 +290,10 @@ for playbookName in listOfPlaybooks:
                 data = yaml.load(file, Loader=SafeLoader)
                 PlaybookObject = Playbook(data)
     else:
-        if os.stat('{}/{}'.format(lib.playbooksFolder, playbookName)).st_size == 0:
+        if os.stat(f'{lib.playbooksFolder}/{playbookName}').st_size == 0:
             continue
         else:
-            with open('{}/{}'.format(lib.playbooksFolder, playbookName)) as file:
+            with open(f'{lib.playbooksFolder}/{playbookName}') as file:
                 data = yaml.load(file, Loader = SafeLoader)
                 # creating the playbook object
                 PlaybookObject = Playbook(data)

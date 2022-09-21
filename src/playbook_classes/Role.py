@@ -31,7 +31,7 @@ class Role(YamlAble):
         """
         roleHandlers = []
         try:
-            with open('{}/{}/handlers/main.yml'.format(lib.rolesFolder, self.name)) as file:
+            with open(f'{lib.rolesFolder}/{self.name}/handlers/main.yml') as file:
                 roleHandlersMainFile = yaml.load(file, Loader=SafeLoader)
                 for i in roleHandlersMainFile:
                     roleHandlers.append(RoleHandler(i))
@@ -46,7 +46,7 @@ class Role(YamlAble):
             List: the list of task Objects defined the role
         """
         roleTasks = []
-        with open('{}/{}/tasks/main.yml'.format(lib.rolesFolder, self.name)) as f:
+        with open(f'{lib.rolesFolder}/{self.name}/tasks/main.yml') as f:
             roleMainFile = yaml.load(f, Loader=SafeLoader)
         try:
             for i in roleMainFile:
@@ -82,10 +82,10 @@ class Role(YamlAble):
         tmpRebootTask = deepcopy(lib.rebootTask)
         if not condition == None:
             self.roleTasks.insert(index, RoleTask({'block': [self.returnIncrementCounterTask(lib.counterOfReboots + 1), tmpRebootTask],
-                                          'when': condition + ' ' + 'and' + ' ' + 'rebootCounter == {}'.format(lib.counterOfReboots)}))
+                                          'when': condition + ' ' + 'and' + ' ' + f'rebootCounter == {lib.counterOfReboots}'}))
         else:
             self.roleTasks.insert(index, RoleTask({'block': [self.returnIncrementCounterTask(lib.counterOfReboots + 1), tmpRebootTask],
-                                                   'when': 'rebootCounter == {}'.format(lib.counterOfReboots)}))
+                                                   'when': f'rebootCounter == {lib.counterOfReboots}'}))
 
     def returnIncrementCounterTask(self, counterOfReboots):
         """Method which returns the task, which increments the global counter
@@ -101,7 +101,7 @@ class Role(YamlAble):
                 "lineinfile": {
                     "dest": "inventory",
                     "regexp:": "rebootCounter",
-                    "line": "rebootCounter = {}".format(counterOfReboots)
+                    "line": f"rebootCounter = {counterOfReboots}"
     }
 }
 

@@ -48,10 +48,10 @@ class Header(YamlAble):
         tmpRebootTask = deepcopy(lib.rebootTask)
         if not condition == None:
             self.pre_tasks.insert(index, PreTask({'block': [self.returnIncrementCounterTask(lib.counterOfReboots + 1), tmpRebootTask],
-                                          'when': condition + ' ' + 'and' + ' ' + 'rebootCounter == {}'.format(lib.counterOfReboots)}))
+                                          'when': condition + ' ' + 'and' + ' ' + f'rebootCounter == {lib.counterOfReboots}'}))
         else:
             self.pre_tasks.insert(index, PreTask({'block': [self.returnIncrementCounterTask(lib.counterOfReboots + 1), tmpRebootTask],
-                                                   'when': 'rebootCounter == {}'.format(lib.counterOfReboots)}))
+                                                   'when': f'rebootCounter == {lib.counterOfReboots}'}))
 
     def addBlockToTasks(self, index, condition=None):
         """Insert the block of tasks into tasks section, which increment the global counter and initiate the reboot, a certain place
@@ -64,10 +64,10 @@ class Header(YamlAble):
         tmpRebootTask = deepcopy(lib.rebootTask)
         if not condition == None:
             self.tasks.insert(index, Task({'block': [self.returnIncrementCounterTask(lib.counterOfReboots + 1), tmpRebootTask],
-                                          'when': condition + ' ' + 'and' + ' ' + 'rebootCounter == {}'.format(lib.counterOfReboots)}))
+                                          'when': condition + ' ' + 'and' + ' ' + f'rebootCounter == {lib.counterOfReboots}'}))
         else:
             self.tasks.insert(index, Task({'block': [self.returnIncrementCounterTask(lib.counterOfReboots + 1), tmpRebootTask],
-                                                   'when': 'rebootCounter == {}'.format(lib.counterOfReboots)}))
+                                                   'when': f'rebootCounter == {lib.counterOfReboots}'}))
 
     def returnIncrementCounterTask(self, counterOfReboots):
         """Method which returns the task, which increments the global counter
@@ -83,7 +83,7 @@ class Header(YamlAble):
                 "lineinfile": {
                     "dest": os.path.join(os.getcwd(), lib.inventoryFile),
                     "regexp": "rebootCounter",
-                    "line": "rebootCounter={}".format(counterOfReboots)
+                    "line": f"rebootCounter={counterOfReboots}"
     }
 }
 

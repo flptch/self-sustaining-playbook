@@ -1,0 +1,24 @@
+---
+
+- hosts: localhost
+  become: true
+  become_user: root
+  tasks:
+    - name: check the uptime before reboot
+      tags: always
+      command: "uptime"
+
+    - name: increment counter
+      tags: always
+      lineinfile:
+        dest: "../inventory.ini"
+        regexp: rebootCounter
+        line: "rebootCounter=1"
+
+    - name: check the control host uptime after reboot
+      tags: always
+      register: uptimeoutput
+      command: "uptime"
+
+    - local_action: copy content={{ uptimeoutput }} dest=~/uptime.txt
+
