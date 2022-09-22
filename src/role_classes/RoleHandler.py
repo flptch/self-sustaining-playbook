@@ -1,7 +1,7 @@
 class RoleHandler:
     """The class, which represents the handler defined in the role/handlers folder
     """
-    def __init__(self, body):
+    def __init__(self, body: dict):
         """The constructor
 
         Args:

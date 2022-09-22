@@ -5,7 +5,7 @@ from yamlable import *
 class Handler(YamlAble):
     """The class, which represents the handler defined in the playbook
     """
-    def __init__(self, body):
+    def __init__(self, body: dict):
         """The constructor
 
         Args:

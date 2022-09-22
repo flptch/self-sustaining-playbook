@@ -11,7 +11,7 @@ from yamlable import *
 class Role(YamlAble):
     """The class, which represents the Role
     """
-    def __init__(self, name, when=None, tags=None):
+    def __init__(self, name: str, when: str=None, tags: str=None):
         """The constructor
 
         Args:
@@ -71,7 +71,7 @@ class Role(YamlAble):
         """
         return self.roleHandlers
 
-    def addBlock(self, index, condition=None):
+    def addBlock(self, index: int, condition: str=None):
         """Insert the block of tasks at, which increment the global counter and initiate the reboot, a certain place
 
         Args:
@@ -87,7 +87,7 @@ class Role(YamlAble):
             self.roleTasks.insert(index, RoleTask({'block': [self.returnIncrementCounterTask(lib.counterOfReboots + 1), tmpRebootTask],
                                                    'when': f'rebootCounter == {lib.counterOfReboots}'}))
 
-    def returnIncrementCounterTask(self, counterOfReboots):
+    def returnIncrementCounterTask(self, counterOfReboots: int):
         """Method which returns the task, which increments the global counter
 
         Args:

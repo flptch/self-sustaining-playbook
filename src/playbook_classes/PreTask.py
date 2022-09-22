@@ -6,7 +6,7 @@ class PreTask(YamlAble):
     yaml_tag = u'!pretask'
     """The class, which represents the pretask defined in the playbook
     """
-    def __init__(self, body):
+    def __init__(self, body: dict):
         yaml.emitter.Emitter.prepare_tag = lambda self, tag: ''
         """The constructor
 

@@ -11,17 +11,11 @@ from playbook_classes.Task import Task
 class Header(YamlAble):
     """The class, which represents the header in the playbook
     """
-    def __init__(self, hosts):
+    def __init__(self, hosts: list):
         """The constructor
 
         Args:
             hosts (List): the list of hosts
-            tasks (List): the list of tasks
-            pre_tasks (List): the list of pretasks
-            handlers (List): the list of handlers
-            roles (List): the list of roles
-            environment(string): describes the environment
-            any_errors_fatal(bool): the value of the variable
         """
         self.hosts = hosts
       
@@ -37,7 +31,7 @@ class Header(YamlAble):
                 **({'environment': self.environment} if not self.environment == "" else {}),
                 **({'any_errors_fatal': self.any_errors_fatal} if not self.any_errors_fatal == "" else {})}
 
-    def addBlockToPreTasks(self, index, condition):
+    def addBlockToPreTasks(self, index: int, condition: str):
         """Insert the block of tasks into the pretask section, which increment the global counter and initiate the reboot, a certain place
 
         Args:
@@ -53,7 +47,7 @@ class Header(YamlAble):
             self.pre_tasks.insert(index, PreTask({'block': [self.returnIncrementCounterTask(lib.counterOfReboots + 1), tmpRebootTask],
                                                    'when': f'rebootCounter == {lib.counterOfReboots}'}))
 
-    def addBlockToTasks(self, index, condition=None):
+    def addBlockToTasks(self, index: int, condition: str=None):
         """Insert the block of tasks into tasks section, which increment the global counter and initiate the reboot, a certain place
 
         Args:
@@ -69,7 +63,7 @@ class Header(YamlAble):
             self.tasks.insert(index, Task({'block': [self.returnIncrementCounterTask(lib.counterOfReboots + 1), tmpRebootTask],
                                                    'when': f'rebootCounter == {lib.counterOfReboots}'}))
 
-    def returnIncrementCounterTask(self, counterOfReboots):
+    def returnIncrementCounterTask(self, counterOfReboots: int):
         """Method which returns the task, which increments the global counter
 
         Args:
@@ -106,7 +100,7 @@ class Header(YamlAble):
             List: hosts
         """
         return self.hosts
-    def setHosts(self, newHosts):
+    def setHosts(self, newHosts: list):
         """Sets the hosts of the header
 
         Args:
@@ -121,7 +115,7 @@ class Header(YamlAble):
             List: tasks
         """
         return self.tasks
-    def setTasks(self, newTasks):
+    def setTasks(self, newTasks: list):
         """Sets the tasks of the header
 
         Args:
@@ -136,7 +130,7 @@ class Header(YamlAble):
             List: pretasks
         """
         return self.pre_tasks
-    def setPreTasks(self, newPre_tasks):
+    def setPreTasks(self, newPre_tasks: list):
         """Sets the pretasks of the header
 
         Args:
@@ -151,7 +145,7 @@ class Header(YamlAble):
             List: handlers
         """
         return self.handlers
-    def setHandlers(self, newHandlers):
+    def setHandlers(self, newHandlers: list):
         """Sests the list of handlers
 
         Args:
@@ -167,7 +161,7 @@ class Header(YamlAble):
         """
         return self.roles
 
-    def setRoles(self, newRoles):
+    def setRoles(self, newRoles: list):
         """Sets the roles in the header
 
         Args:
@@ -175,7 +169,7 @@ class Header(YamlAble):
         """
         self.roles = newRoles 
     
-    def setEnvironment(self, newEnvironment):
+    def setEnvironment(self, newEnvironment: str):
         """Sets the environment in the header
 
         Args:
@@ -183,7 +177,7 @@ class Header(YamlAble):
         """
         self.environment = newEnvironment
 
-    def setAnyErrorsFatal(self, newAnyErrorsFatal):
+    def setAnyErrorsFatal(self, newAnyErrorsFatal: str):
         """Sets the any_errors_fatal variable in the header
 
         Args:
@@ -191,7 +185,7 @@ class Header(YamlAble):
         """
         self.any_errors_fatal = newAnyErrorsFatal
 
-    def setBecome(self, value):
+    def setBecome(self, value: str):
         """Sets the become variable in the header
 
         Args:
@@ -199,7 +193,7 @@ class Header(YamlAble):
         """
         self.become = value
 
-    def setBecomeUser(self, user):
+    def setBecomeUser(self, user: list):
         """Sets the user
 
         Args:

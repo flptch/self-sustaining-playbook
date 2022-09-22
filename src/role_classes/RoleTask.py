@@ -5,7 +5,7 @@ from yamlable import *
 class RoleTask(YamlAble):
     """The class, which represents the task defined in the role
     """
-    def __init__(self, body):
+    def __init__(self, body: dict):
         """The constructor
 
         Args:

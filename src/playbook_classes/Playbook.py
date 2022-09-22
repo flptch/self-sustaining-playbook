@@ -9,12 +9,13 @@ from playbook_classes.PreTask import PreTask
 import yaml
 from yamlable import *
 
+
 @yaml_info(yaml_tag_ns='')
 class Playbook(YamlAble):
     counterOfReboots = 0
     """The class, which represents the whole playbook
     """
-    def __init__(self, headers):
+    def __init__(self, headers: list[dict]):
         """The constructor
 
         Args:
@@ -23,7 +24,7 @@ class Playbook(YamlAble):
         """
         self.headers = self.createHeaderObjects(headers)
 
-    def createHeaderObjects(self, headers):
+    def createHeaderObjects(self, headers: list[dict]):
         """Creates the header objects
 
         Args:
@@ -72,7 +73,7 @@ class Playbook(YamlAble):
 
         return tmpHeaders
 
-    def createHostObjects(self, hosts):
+    def createHostObjects(self, hosts: list):
         """Creates the header hosts objects
 
         Args:
@@ -88,7 +89,7 @@ class Playbook(YamlAble):
 
         return listOfHosts
 
-    def createTaskObjects(self, tasks):
+    def createTaskObjects(self, tasks: list):
         """Creates the task objects
 
         Args:
@@ -103,7 +104,7 @@ class Playbook(YamlAble):
 
         return listOfTasks
 
-    def createPreTaskObjects(self, preTasks):
+    def createPreTaskObjects(self, preTasks: list):
         """Creates the pretasks objects
 
         Args:
@@ -118,7 +119,7 @@ class Playbook(YamlAble):
 
         return listOfPreTasks
 
-    def createHandlerObjects(self, handlers):
+    def createHandlerObjects(self, handlers: list):
         """Creates the handler objects
 
         Args:
@@ -133,7 +134,7 @@ class Playbook(YamlAble):
 
         return listOfHandlers
 
-    def createRoleObjects(self, roles):
+    def createRoleObjects(self, roles: list):
         """Creates the Role objects
 
         Args:

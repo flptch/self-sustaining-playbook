@@ -8,7 +8,7 @@ import os
 import lib
 import argparse
 
-def rebootInPlaybookPreTasks(controlHost):
+def rebootInPlaybookPreTasks(controlHost: str):
     """Searches for reboot in the playbook pretasks and replaces it with the block of commands
 
     Returns:
@@ -46,7 +46,7 @@ def rebootInPlaybookPreTasks(controlHost):
         counterOfPreTasks += 1
     return changeNeeded
 
-def rebootInPlaybookTasks(controlHost):
+def rebootInPlaybookTasks(controlHost: str):
     """Searches for reboot in playbook tasks and replaces it with block of commands
 
     Returns:
@@ -84,7 +84,7 @@ def rebootInPlaybookTasks(controlHost):
             counterOfTasks += 1
     return changeNeeded
 
-def rebootInRole(controlHost):
+def rebootInRole(controlHost: str):
     """Searches for reboot task in role tasks and replaces it with the block of commands
 
     Returns:
@@ -118,7 +118,7 @@ def rebootInRole(controlHost):
                 counterOfRoleTasks += 1
     return changeNeeded
 
-def findTheHandler(notifiedHandlers, listOfRoles=None, role=None):
+def findTheHandler(notifiedHandlers: list, listOfRoles: list=None, role: str=None):
     """Finds the handler by name and returns it
 
     Args:
@@ -145,7 +145,7 @@ def findTheHandler(notifiedHandlers, listOfRoles=None, role=None):
         if handler.name in notifiedHandlers:
             return handler
 
-def controlHostInHosts(hosts, controlHost):
+def controlHostInHosts(hosts: list, controlHost: str):
     """Finds out if the list of hosts contains the control host
 
     Args:
@@ -160,7 +160,7 @@ def controlHostInHosts(hosts, controlHost):
             return True
     return False
 
-def createSystemdUnit(playbookName, systemdUnitLocation, inventoryFile):
+def createSystemdUnit(playbookName: str, systemdUnitLocation: str, inventoryFile: str):
     """Creates the systemd unit to the given location
 
     Args:
@@ -203,7 +203,7 @@ def addSystemdTasks():
     PlaybookObject.getHeaders()[len(PlaybookObject.getHeaders()) - 1].getTasks().append(Task(lib.removeSystemdUnitTask))
     PlaybookObject.getHeaders()[len(PlaybookObject.getHeaders()) - 1].getTasks().append(Task(lib.daemonReloadTask))
 
-def createCounterVariable(inventoryFile):
+def createCounterVariable(inventoryFile: str):
     """Creates the global variable Counter used by reboots conditions
 
     Args:
@@ -229,7 +229,7 @@ def createCounterVariable(inventoryFile):
     with open(inventoryFile, 'w') as file:
         file.writelines(lines)
 
-def dumpTheMainPlaybook(playbookName):
+def dumpTheMainPlaybook(playbookName: str):
     """Dumps the main playbook
 
     Args:
