@@ -4,7 +4,10 @@
 The python script, which edits the ansible playbook, which reboots the control host. \
 The script is still being implemented, the right functionality is not guaranteed.
 
+## How does it work
+
 ## How to run the script
+First you have to install all dependencies with: pip3 install -r requirements.txt \
 The script has two positional arguments: file - the name of the playbook, control_host - the name of the control host. \
 To show all the optional arguments, run "python3 script --help"
 
