@@ -7,5 +7,5 @@ vyresit proc se variable counter nenahradi, ale vytvori se nova - DONE
 dependecny management - co nainstalovat do virtual env - DONE
 zbavit se lip.py asi
 unit testy?
-typing - info pro developera co od promenne ocekavat
-
+typing - info pro developera co od promenne ocekavat - DONE
+fixnout spousteni toho hlavniho playbooku - DONE

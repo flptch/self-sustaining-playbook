@@ -1,10 +1,11 @@
 import os
+import pwd
 
 counterOfReboots = 0
 rolesFolder = "../roles"
 playbooksFolder = "../playbooks"
 inventoryFile = "inventory.ini"
-systemdUnitLocation = os.path.abspath(f'files/{os.getlogin()}.service')
+systemdUnitLocation = os.path.abspath(f'files/{pwd.getpwuid(os.geteuid())[0]}.service')
 
 rebootTask = {
     "name" : "reboot the local host",
@@ -23,7 +24,7 @@ createSystemdUnitTask = {
 enableSystemdUnitTask = {
     "name": "enable the unit to execute at reboot",
     "tags": "always",
-    "command": f"sudo systemctl enable {os.getlogin()}.service"
+    "command": f"sudo systemctl enable {pwd.getpwuid(os.geteuid())[0]}.service"
 }
 
 daemonReloadTask = {
@@ -37,7 +38,7 @@ removeSystemdUnitTask = {
     "tags": "always",
     "file" : {
         "state": "absent",
-        "path": f"/etc/systemd/system/{os.getlogin()}.service"
+        "path": f"/etc/systemd/system/{pwd.getpwuid(os.geteuid())[0]}.service"
     }
 }
 

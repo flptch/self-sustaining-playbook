@@ -46,8 +46,11 @@ class Role(YamlAble):
             List: the list of task Objects defined the role
         """
         roleTasks = []
-        with open(f'{lib.rolesFolder}/{self.name}/tasks/main.yml') as f:
-            roleMainFile = yaml.load(f, Loader=SafeLoader)
+        try:
+            with open(f'{lib.rolesFolder}/{self.name}/tasks/main.yml') as f:
+                roleMainFile = yaml.load(f, Loader=SafeLoader)
+        except FileNotFoundError:
+            pass
         try:
             for i in roleMainFile:
                 roleTasks.append(RoleTask(i))            

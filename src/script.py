@@ -6,6 +6,7 @@ from playbook_classes.PreTask import PreTask
 from playbook_classes.Task import Task
 import os
 import lib
+import pwd
 import argparse
 
 def rebootInPlaybookPreTasks(controlHost: str):
@@ -184,9 +185,9 @@ Before=shutdown.target
 [Service]
 Type=oneshot
 DISPLAY=:0
-User={os.getlogin()}
+User={pwd.getpwuid(os.geteuid())[0]}
 ExecStart=/bin/bash -c 'DISPLAY=:0 xterm -geometry 120x50+500 -hold -e sudo ansible-playbook -i {os.path.abspath(inventoryFile)} {os.path.abspath("../created_playbook.yml")}'
-User={os.getlogin()}
+User={pwd.getpwuid(os.geteuid())[0]}
 
 [Install]
 WantedBy=default.target
@@ -253,7 +254,7 @@ ap.add_argument('--single-playbook',action='store_true',help=' if the single pla
 ap.add_argument('--inventory-file', metavar='',default="../inventory.ini",help='the location of the inventory file (default: ../inventory.ini)')
 ap.add_argument('--roles-folder', metavar='', default='../roles', help='the location of the roles folder (default: ../roles)')
 ap.add_argument('--playbooks-folder', metavar='', default='../playbooks', help='the location of the playbooks folder (default: ../playbooks)')
-ap.add_argument('--systemd-unit', metavar='', default=f'files/{os.getlogin()}.service', help='the location where the systemd unit will be created (default: files)')
+ap.add_argument('--systemd-unit', metavar='', default=f'files/{pwd.getpwuid(os.geteuid())[0]}.service', help='the location where the systemd unit will be created (default: files)')
 ap.add_argument('file', metavar='file',type=str, help='the name of the playbook')
 ap.add_argument('controlHost', metavar='control_host', type=str, help='the name of the controlHost')
 args = ap.parse_args()
@@ -315,3 +316,5 @@ for playbookName in listOfPlaybooks:
 if changedPlaybooks == 0:
     print('No change was made...')
     exit(0)
+
+print(lib.counterOfReboots)
