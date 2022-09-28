@@ -42,4 +42,12 @@ removeSystemdUnitTask = {
     }
 }
 
+setCounterToZero = {
+    "name": "set the global counter to zero",
+    "tags": "always",
+    "dest": os.path.join(os.getcwd(), inventoryFile),
+                    "regexp": "rebootCounter",
+                    "line": "rebootCounter=0"
+}
+
 

@@ -27,6 +27,7 @@
     - name: reboot the control host
       tags: always
       reboot:
+        msg: "rebooting the control host..."
 
     - name: check the control host uptime after reboot
       tags: always

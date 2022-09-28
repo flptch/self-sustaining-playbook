@@ -13,7 +13,7 @@ def rebootInPlaybookPreTasks(controlHost: str):
     """Searches for reboot in the playbook pretasks and replaces it with the block of commands
 
     Returns:
-        bool: True - if thereplacement is needed, False - otherwise
+        bool: True - if the replacement is needed, False - otherwise
     """
     changeNeeded = False
     for header in PlaybookObject.getHeaders():
@@ -203,6 +203,7 @@ def addSystemdTasks():
     PlaybookObject.getHeaders()[0].getPreTasks().append(PreTask(lib.daemonReloadTask))
     PlaybookObject.getHeaders()[len(PlaybookObject.getHeaders()) - 1].getTasks().append(Task(lib.removeSystemdUnitTask))
     PlaybookObject.getHeaders()[len(PlaybookObject.getHeaders()) - 1].getTasks().append(Task(lib.daemonReloadTask))
+    PlaybookObject.getHeaders()[len(PlaybookObject.getHeaders()) - 1].getTasks().append(Task(lib.setCounterToZero))
 
 def createCounterVariable(inventoryFile: str):
     """Creates the global variable Counter used by reboots conditions
